@@ -153,6 +153,7 @@
       spot.tower = tw;
       this.towers.push(tw);
       this.emit("gold");
+      this.emit("build");
       return true;
     }
 
@@ -311,6 +312,7 @@
         });
       }
       this.powerCd.meteoro = P.cd;
+      this.emit("shot", { kind: "meteoro" });
       return true;
     }
 
@@ -339,6 +341,7 @@
       const dmg = Math.max(1, Math.round(amount * (1 - red)));
       e.hp -= dmg;
       if (showText) this.effects.push({ kind: "dmg", x: e.x + rand(-6, 6), y: e.y - 20, age: 0, dur: 0.7, text: dmg, color: type === "mag" ? "#9ad2ff" : "#ffd9a0" });
+      this.emit("hit");
       if (e.hp <= 0 && !e.dead) this.killEnemy(e);
     }
 
@@ -349,6 +352,7 @@
       this.effects.push({ kind: "coin", x: e.x, y: e.y - 14, age: 0, dur: 0.8 });
       if (e.blocker) e.blocker.engaged = null;
       this.emit("gold");
+      this.emit("kill", { boss: !!e.def.boss });
     }
 
     aoeDamage(x, y, r, amount, type) {
@@ -439,6 +443,7 @@
             e.atkCd = e.def.rate;
             const u = e.blocker;
             u.hp -= randInt(e.def.dmg);
+            this.emit("hit");
             if (u.hp <= 0) this.killUnit(u);
           }
         } else {
@@ -578,6 +583,7 @@
                 kind: "rayo", x: u.x, y: u.y - 24, target: best,
                 speed: 320, dmg: randInt(u.def.dmg), dmgType: "mag",
               });
+              this.emit("shot", { kind: "rayo" });
             }
           }
         }
@@ -636,6 +642,7 @@
           h.abilityCd = ab.cd;
           this.effects.push({ kind: "whirl", x: h.x, y: h.y, r: ab.aoe, age: 0, dur: 0.6 });
           this.aoeDamage(h.x, h.y, ab.aoe, ab.dmg, "fis");
+          this.emit("ability");
         }
       } else if (ab.type === "fireball") {
         // busca el grupo más denso a su alcance
@@ -653,6 +660,7 @@
             delay: 0, speed: 300, dmg: ab.dmg, aoe: ab.aoe,
             angle: Math.atan2(best.y - h.y, best.x - h.x),
           });
+          this.emit("ability");
         }
       }
     }
@@ -680,6 +688,7 @@
             t: 0, dur: 0.55, x0: tw.x, y0: tw.y - 20,
             dmg: randInt(lvl.dmg), aoe: lvl.aoe, groundY: best.y,
           });
+          this.emit("shot", { kind: "bomba" });
         } else {
           this.projectiles.push({
             kind: def.proj, x: tw.x, y: tw.y - 30, target: best,
@@ -689,6 +698,7 @@
             slowPct: lvl.slowPct || 0, slowDur: lvl.slowDur || 0,
             angle: Math.atan2(best.y - tw.y, best.x - tw.x),
           });
+          this.emit("shot", { kind: def.proj });
         }
       }
     }

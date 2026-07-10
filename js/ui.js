@@ -249,9 +249,28 @@
     UI.show("game");
     resize(); // el contenedor ya es visible: ajustar el lienzo ahora
     game.paused = false;
+    TA.audio.startMusic();
   };
 
+  function playEventSound(ev, data) {
+    switch (ev) {
+      case "shot": TA.audio.play("shot_" + data.kind); break;
+      case "hit": TA.audio.play("hit"); break;
+      case "kill": TA.audio.play(data.boss ? "kill_boss" : "kill"); break;
+      case "ability": TA.audio.play("ability"); break;
+      case "build": TA.audio.play("build"); break;
+      case "gold": TA.audio.play("coin"); break;
+      case "wave": TA.audio.play("wave"); break;
+      case "lives": TA.audio.play("lives_lost"); break;
+      case "heroDown": TA.audio.play("hero_down"); break;
+      case "heroUp": TA.audio.play("hero_up"); break;
+      case "victory": TA.audio.stopMusic(); TA.audio.play("victory"); break;
+      case "defeat": TA.audio.stopMusic(); TA.audio.play("defeat"); break;
+    }
+  }
+
   function onGameEvent(ev, data) {
+    playEventSound(ev, data);
     if (ev === "victory") {
       const save = UI.load();
       const prev = save.stars[game.def.id] || 0;
@@ -584,6 +603,18 @@
     cv.width = TA.W; cv.height = TA.H;
     UI.ctx = cv.getContext("2d");
 
+    // el audio necesita un toque real del usuario para arrancar (norma de iOS/Safari)
+    window.addEventListener("pointerdown", TA.audio.unlock, { once: true });
+    $("btn-mute").textContent = TA.audio.isMuted() ? "🔇" : "🔊";
+    $("btn-mute").addEventListener("click", () => {
+      const muted = TA.audio.toggleMute();
+      $("btn-mute").textContent = muted ? "🔇" : "🔊";
+    });
+    // pequeño clic en todos los botones de navegación (no en los del propio tablero de juego)
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".btn")) TA.audio.play("button");
+    });
+
     $("btn-play").addEventListener("click", () => { UI.buildMap(); UI.show("map"); });
     $("btn-region-bosque").addEventListener("click", () => { mapRegion = "bosque"; UI.buildMap(); });
     $("btn-region-desierto").addEventListener("click", () => { mapRegion = "desierto"; UI.buildMap(); });
@@ -598,6 +629,7 @@
     $("btn-map-back").addEventListener("click", () => UI.show("title"));
     $("btn-home").addEventListener("click", () => {
       if (game) game.paused = true;
+      TA.audio.stopMusic();
       UI.buildMap(); UI.show("map");
     });
     $("btn-pause").addEventListener("click", () => { if (game && !game.over) game.paused = !game.paused; });
