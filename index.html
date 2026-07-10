@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Torres Alianza</title>
+  <meta name="description" content="Defiende el reino: juego de torres de fantasía.">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Torres Alianza">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" href="icon-180.png">
+  <meta name="theme-color" content="#3e7a2e">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- PANTALLA DE TÍTULO -->
+  <section id="scr-title" class="screen visible">
+    <div class="title-sky"></div>
+    <div class="title-card">
+      <h1><span class="t-line1">Torres</span><span class="t-line2">Alianza</span></h1>
+      <p class="t-sub">¡Defiende el reino junto a tus héroes!</p>
+      <button id="btn-play" class="btn gold big">⚔ &nbsp;Jugar</button>
+      <p class="t-note">Se juega mejor con el móvil en horizontal</p>
+    </div>
+  </section>
+
+  <!-- MAPA DE NIVELES -->
+  <section id="scr-map" class="screen">
+    <header class="map-head">
+      <button id="btn-map-back" class="btn wood small">◀</button>
+      <h2>Elige batalla</h2>
+      <span class="hud-chip" id="ap-chip">💎 <b id="ap-count">0</b></span>
+      <button id="btn-progression" class="btn wood small">🌳 Progresión</button>
+      <button id="btn-hard" class="btn wood small">⚔ Normal</button>
+      <span class="hud-spacer"></span>
+      <div id="region-tabs">
+        <button id="btn-region-bosque" class="btn wood small active">🌲 Bosque</button>
+        <button id="btn-region-desierto" class="btn wood small">🏜️ Desierto</button>
+        <button id="btn-region-montana" class="btn wood small">🏔️ Montaña</button>
+      </div>
+    </header>
+    <div id="map-parchment">
+      <svg id="map-trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M 14 72 C 20 60, 24 52, 30 48 C 38 44, 44 58, 50 62 C 58 66, 62 42, 68 36 C 74 30, 80 48, 84 58"
+              fill="none" stroke="#a5834f" stroke-width="1.6" stroke-dasharray="3 2.4" stroke-linecap="round"/>
+      </svg>
+      <div id="map-nodes"></div>
+    </div>
+  </section>
+
+  <!-- PARTIDA -->
+  <section id="scr-game" class="screen">
+    <header id="hud-top">
+      <span id="hud-level-name"></span>
+      <span class="hud-chip">❤️ <b id="hud-lives">20</b></span>
+      <span class="hud-chip">🪙 <b id="hud-gold">0</b></span>
+      <span class="hud-chip">🌊 <b id="hud-wave">1/5</b></span>
+      <span class="hud-spacer"></span>
+      <button id="btn-pause" class="btn wood small">❚❚</button>
+      <button id="btn-speed" class="btn wood small">▶▶</button>
+      <button id="btn-home" class="btn wood small">🏠</button>
+    </header>
+
+    <div id="cv-holder">
+      <canvas id="cv"></canvas>
+      <button id="wave-call" class="btn gold"></button>
+      <div id="build-menu"></div>
+    </div>
+
+    <footer id="hud-bottom">
+      <div id="heroes-bar"></div>
+      <span class="hud-spacer"></span>
+      <div id="powers-bar"></div>
+    </footer>
+
+  </section>
+
+  <div id="modal"></div>
+
+  <!-- aviso para girar el móvil -->
+  <div id="rotate-overlay" aria-hidden="true">
+    <div>📱↻<br>Gira el móvil<br><small>el campo de batalla es apaisado</small></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
