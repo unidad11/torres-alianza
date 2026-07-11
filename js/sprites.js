@@ -177,6 +177,66 @@
     ctx.beginPath(); ctx.moveTo(-16, -2); ctx.lineTo(-23, -10 - bob); ctx.stroke();
   };
 
+  S.e_berserker = function (ctx, t, bob) {
+    const run = Math.sin(t * 13);
+    ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(-4, 8); ctx.lineTo(-6, 15 + run * 3); ctx.moveTo(4, 8); ctx.lineTo(6, 15 - run * 3); ctx.stroke();
+    blob(ctx, 0, 0, 10, 10, "#c0492f", 3);            // torso musculoso rojizo
+    blob(ctx, 2, -13, 9, 8, "#d9603f", 2.5);          // cabeza
+    eyes(ctx, 4, -14, 3.5, 2);
+    ctx.strokeStyle = "#3a2314"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-3, -18); ctx.lineTo(3, -19); ctx.stroke(); // ceño fruncido
+    // hacha doble grande
+    ctx.strokeStyle = "#5a4530"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(10, 4); ctx.lineTo(20, -14 + bob); ctx.stroke();
+    ctx.fillStyle = "#b9bec8"; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(16, -20 + bob); ctx.lineTo(26, -16 + bob); ctx.lineTo(20, -8 + bob); ctx.lineTo(14, -12 + bob); ctx.closePath(); ctx.fill(); ctx.stroke();
+  };
+
+  S.e_coloso = function (ctx, t, bob) {
+    ctx.strokeStyle = INK; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(-11, 16); ctx.lineTo(-12, 26); ctx.moveTo(11, 16); ctx.lineTo(12, 26); ctx.stroke();
+    blob(ctx, 0, 0, 22, 20, "#8d8574", 4);            // cuerpo de roca
+    blob(ctx, -8, -8, 8, 7, "#a8a294", 2.5);
+    blob(ctx, 9, 4, 9, 8, "#7a7364", 2.5);
+    blob(ctx, 2, -22, 15, 13, "#8d8574", 3.5);        // cabeza de piedra
+    ctx.fillStyle = "#ffb84d";
+    pathEllipse(ctx, 5, -24, 3, 2.2); ctx.fill();      // grietas brillantes en vez de ojos
+    pathEllipse(ctx, 10, -22, 2.4, 1.8); ctx.fill();
+    ctx.strokeStyle = "#5a5648"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(2, 4); ctx.moveTo(6, -14); ctx.lineTo(0, -8); ctx.stroke();
+    // puños enormes
+    blob(ctx, -18, 6 + bob * 0.3, 8, 7, "#7a7364", 3);
+    blob(ctx, 20, 8 - bob * 0.3, 8, 7, "#7a7364", 3);
+  };
+
+  S.e_espectro_alado = function (ctx, t) {
+    const g = 0.55 + Math.sin(t * 4) * 0.25;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(200,225,255," + g + ")"; ctx.strokeStyle = "rgba(120,150,190,0.9)"; ctx.lineWidth = 2;
+    const flap = Math.sin(t * 7);
+    ctx.beginPath(); ctx.moveTo(-3, 2); ctx.quadraticCurveTo(-20, -6 - flap * 4, -26, 4 + flap * 3); ctx.quadraticCurveTo(-14, 6, -3, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3, 2); ctx.quadraticCurveTo(20, -6 - flap * 4, 26, 4 + flap * 3); ctx.quadraticCurveTo(14, 6, 3, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // túnica jironada
+    ctx.beginPath(); ctx.moveTo(-7, 10); ctx.quadraticCurveTo(0, -10, 7, 10); ctx.lineTo(4, 16); ctx.lineTo(0, 10); ctx.lineTo(-4, 16); ctx.closePath(); ctx.fill(); ctx.stroke();
+    blob(ctx, 1, -8, 7, 6.5, "rgba(225,238,255,0.9)", 2);
+    ctx.fillStyle = "#7cc8ff";
+    pathEllipse(ctx, -1, -9, 1.8, 2.2); ctx.fill();
+    pathEllipse(ctx, 3, -9, 1.8, 2.2); ctx.fill();
+    ctx.globalAlpha = 1;
+  };
+
+  S.e_enjambre = function (ctx, t) {
+    ctx.fillStyle = "#3a2314";
+    for (let i = 0; i < 5; i++) {
+      const a = t * 8 + i * (Math.PI * 2 / 5);
+      const r = 7 + Math.sin(t * 5 + i) * 2;
+      pathEllipse(ctx, Math.cos(a) * r, -6 + Math.sin(a) * r * 0.6, 2.2, 2); ctx.fill();
+    }
+    ctx.fillStyle = "#8fc954";
+    pathEllipse(ctx, 0, -6, 3, 2.6); ctx.fill();
+  };
+
   S.e_murcielago = function (ctx, t) {
     const flap = Math.sin(t * 20);
     ctx.fillStyle = "#4a3d55"; ctx.strokeStyle = INK; ctx.lineWidth = 2;

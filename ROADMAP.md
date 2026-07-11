@@ -35,6 +35,22 @@ Arte propio dibujado por código (sin copiar gráficos de Ironhide).
 - Región Montaña (niveles 13-15): nieve, enemigos con más resistencia mágica.
 - Logros y modo difícil (más vida/daño a los enemigos, más Puntos de Alianza a cambio).
 
+## ✅ Equilibrado y sonido (hecho 10/07/2026)
+- Sonido: música de fondo y efectos de combate con Web Audio API (sin archivos), botón de silencio.
+- Reequilibrado completo tras detectar que se ganaba solo con héroes, sin construir torres:
+  - Identidades de resistencia más marcadas (armadura/resistencia mágica más extremas) para que
+    algunos enemigos necesiten sí o sí torres físicas y otros mágicas.
+  - Resistencia a la ralentización del Hielo (`slowRes`/`slowImmune`): los jefes y bestias grandes
+    apenas la notan; los enemigos ligeros y rápidos sí.
+  - 4 enemigos nuevos con identidad clara: Coloso (físico extremo, inmune al hielo), Espectro Alado
+    (volador resistente a la magia), Enjambre (frágil y rapidísimo), Berserker (rápido y golpea fuerte).
+  - Modo difícil ahora sube vida, daño, armadura/resistencia mágica Y velocidad a la vez (como el
+    modo Imposible de Kingdom Rush), no solo la vida.
+  - Más oleadas y más enemigos por oleada en los 15 niveles, llegando más rápido, para que dos
+    héroes solos no puedan aguantar el ritmo sin ayuda de torres.
+  - Validado con simulaciones automáticas: sin torres se pierde siempre; con una buena
+    combinación de torres (rama + maestría) se puede ganar, incluido el nivel final.
+
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.
 - Sonidos y música (WebAudio).

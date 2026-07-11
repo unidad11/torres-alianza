@@ -417,9 +417,19 @@
 
     spawnEnemy(type, pathIdx) {
       const base = TA.ENEMIES[type];
-      // en modo difícil cada enemigo es más duro y da algo más de oro (clon propio, no toca la tabla compartida)
+      // en modo difícil el enemigo sube en varios frentes a la vez (vida, daño, aguante,
+      // velocidad y cadencia), no solo la vida — clon propio, no toca la tabla compartida
       const def = this.hardMode
-        ? { ...base, hp: Math.round(base.hp * 1.5), dmg: [Math.round(base.dmg[0] * 1.25), Math.round(base.dmg[1] * 1.25)], bounty: Math.round(base.bounty * 1.2) }
+        ? {
+            ...base,
+            hp: Math.round(base.hp * 1.5),
+            dmg: [Math.round(base.dmg[0] * 1.25), Math.round(base.dmg[1] * 1.25)],
+            bounty: Math.round(base.bounty * 1.2),
+            spd: base.spd * 1.15,
+            rate: base.rate * 0.85,
+            armor: Math.min(0.85, (base.armor || 0) + 0.1),
+            mres: Math.min(0.85, (base.mres || 0) + 0.1),
+          }
         : base;
       this.enemies.push({
         type, def, hp: def.hp, dead: false,
@@ -758,9 +768,12 @@
             } else {
               this.applyDamage(e, p.dmg, p.dmgType, false);
             }
-            if (p.slowPct) {
-              e.slowUntil = Math.max(e.slowUntil, this.time + p.slowDur);
-              e.slowPct = Math.max(e.slowPct, p.slowPct);
+            if (p.slowPct && !e.def.slowImmune) {
+              const effPct = p.slowPct * (1 - (e.def.slowRes || 0));
+              if (effPct > 0.01) {
+                e.slowUntil = Math.max(e.slowUntil, this.time + p.slowDur);
+                e.slowPct = Math.max(e.slowPct, effPct);
+              }
             }
           } else {
             p.x += ((e.x - p.x) / dd) * step;
