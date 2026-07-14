@@ -9,20 +9,60 @@
   const INK = "#3a2314"; // contorno marrón oscuro (tinta cálida)
 
   // ---------- ayudas ----------
+  // aclara (amt>0) u oscurece (amt<0) un color "#rrggbb" en la proporción indicada
+  function adjust(hex, amt) {
+    let h = hex.replace("#", "");
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    const n = parseInt(h, 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const f = (c) => Math.max(0, Math.min(255, Math.round(amt >= 0 ? c + (255 - c) * amt : c * (1 + amt))));
+    return `rgb(${f(r)},${f(g)},${f(b)})`;
+  }
+  // degradado vertical (más claro arriba, más oscuro abajo) a partir de un color plano;
+  // si no es un "#rrggbb" (p.ej. un rgba dinámico de brillo/glow) se deja tal cual
+  function shadeFill(ctx, fill, x, yTop, yBottom) {
+    if (typeof fill !== "string" || fill[0] !== "#") return fill;
+    const g = ctx.createLinearGradient(x, yTop, x, yBottom);
+    g.addColorStop(0, adjust(fill, 0.32));
+    g.addColorStop(0.55, fill);
+    g.addColorStop(1, adjust(fill, -0.24));
+    return g;
+  }
   function pathEllipse(ctx, x, y, rx, ry) {
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   }
   function blob(ctx, x, y, rx, ry, fill, lw) {
     pathEllipse(ctx, x, y, rx, ry);
-    ctx.fillStyle = fill; ctx.fill();
+    ctx.fillStyle = shadeFill(ctx, fill, x, y - ry, y + ry);
+    ctx.fill();
     ctx.lineWidth = lw || 2.5; ctx.strokeStyle = INK; ctx.stroke();
+    if (typeof fill === "string" && fill[0] === "#") {
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, Math.PI * 1.1, Math.PI * 1.85);
+      ctx.strokeStyle = "rgba(255,255,255,0.32)";
+      ctx.lineWidth = Math.max(1, (lw || 2.5) * 0.55);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
   function rect(ctx, x, y, w, h, fill, r, lw) {
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, r || 3); else ctx.rect(x, y, w, h);
-    ctx.fillStyle = fill; ctx.fill();
+    ctx.fillStyle = shadeFill(ctx, fill, x, y, y + h);
+    ctx.fill();
     ctx.lineWidth = lw || 2.5; ctx.strokeStyle = INK; ctx.stroke();
+    if (typeof fill === "string" && fill[0] === "#") {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x + (r || 3), y + 1.2);
+      ctx.lineTo(x + w - (r || 3), y + 1.2);
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = Math.max(1, (lw || 2.5) * 0.5);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
   function eyes(ctx, x, y, sep, r) {
     ctx.fillStyle = "#fff";
@@ -618,6 +658,18 @@
   };
 
   // ---------- DECORADO ----------
+  // sombra proyectada con ángulo (simula una luz que viene de arriba-izquierda),
+  // en vez de la elipse plana justo debajo del objeto
+  S.castShadow = function (ctx, x, y, s) {
+    ctx.save();
+    ctx.translate(x + 10 * s, y + 6 * s);
+    ctx.rotate(0.5);
+    ctx.fillStyle = "rgba(30,20,10,0.16)";
+    pathEllipse(ctx, 0, 0, 16 * s, 6 * s);
+    ctx.fill();
+    ctx.restore();
+  };
+
   S.tree = function (ctx, x, y, s, tone) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
     ctx.fillStyle = "rgba(40,25,10,0.18)";
@@ -808,5 +860,40 @@
     ctx.fillStyle = "rgba(120,255,140," + (1 - k) * 0.9 + ")";
     ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
     ctx.fillText("+", fx.x, fx.y - 14 * k);
+  };
+
+  // chispazo al golpear (cuerpo a cuerpo o a distancia, cualquier torre/héroe)
+  S.spark = function (ctx, fx) {
+    const k = fx.age / fx.dur;
+    ctx.globalAlpha = 1 - k;
+    ctx.strokeStyle = fx.color || "#fff2c8";
+    ctx.lineWidth = 2 * (1 - k);
+    for (let i = 0; i < 3; i++) {
+      const a = i * 2.15 + fx.seed;
+      ctx.beginPath();
+      ctx.moveTo(fx.x, fx.y);
+      ctx.lineTo(fx.x + Math.cos(a) * 9 * k, fx.y + Math.sin(a) * 9 * k);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // clima ambiental de fondo (hojas / arena / nieve), puramente decorativo
+  S.ambient = function (ctx, fx) {
+    const y = fx.y0 + fx.fallSpd * fx.age;
+    const x = fx.x0 + fx.drift * fx.age * 0.3 + Math.sin(fx.age * 2 + fx.seed) * 10;
+    if (y > TA.H + 20) return;
+    if (fx.variant === "nieve") {
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      pathEllipse(ctx, x, y, 2.6, 2.6); ctx.fill();
+    } else if (fx.variant === "arena") {
+      ctx.fillStyle = "rgba(214,180,120,0.55)";
+      pathEllipse(ctx, x, y, 2.2, 1.3); ctx.fill();
+    } else {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(fx.age * 3 + fx.seed);
+      ctx.fillStyle = fx.seed > 5 ? "rgba(190,140,40,0.7)" : "rgba(90,150,50,0.65)";
+      pathEllipse(ctx, 0, 0, 3.6, 2); ctx.fill();
+      ctx.restore();
+    }
   };
 })();

@@ -138,6 +138,7 @@
     }
     decor.sort((a, b) => a.y - b.y);
     for (const d of decor) {
+      if (d.kind !== "flower") S().castShadow(ctx, d.x, d.y, d.s);
       if (d.kind === "tree") S().tree(ctx, d.x, d.y, d.s, d.tone);
       else if (d.kind === "pinoNieve") S().pinoNieve(ctx, d.x, d.y, d.s);
       else if (d.kind === "rock") S().rock(ctx, d.x, d.y, d.s);
@@ -167,6 +168,13 @@
       ctx.beginPath(); ctx.moveTo(end.x, end.y - 34); ctx.lineTo(end.x + 22, end.y - 27); ctx.lineTo(end.x, end.y - 20);
       ctx.closePath(); ctx.fill(); ctx.stroke();
     }
+
+    // viñeta sutil: oscurece un poco los bordes para dar profundidad
+    const vg = ctx.createRadialGradient(TA.W / 2, TA.H / 2, TA.H * 0.35, TA.W / 2, TA.H / 2, TA.H * 0.85);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(20,15,8,0.28)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, TA.W, TA.H);
 
     return cv;
   };
@@ -247,6 +255,8 @@
       else if (fx.kind === "dmg") S().dmgText(ctx, fx);
       else if (fx.kind === "whirl") S().whirl(ctx, fx);
       else if (fx.kind === "heal") S().healFx(ctx, fx);
+      else if (fx.kind === "spark") S().spark(ctx, fx);
+      else if (fx.kind === "ambient") S().ambient(ctx, fx);
     }
 
     // héroes muertos: reloj de reaparición sobre el suelo

@@ -340,6 +340,7 @@
       const red = type === "mag" ? (e.def.mres || 0) : (e.def.armor || 0);
       const dmg = Math.max(1, Math.round(amount * (1 - red)));
       e.hp -= dmg;
+      this.effects.push({ kind: "spark", x: e.x, y: e.y - e.def.r * 0.6, age: 0, dur: 0.22, seed: rand(0, 6), color: type === "mag" ? "#9ad2ff" : "#fff2c8" });
       if (showText) this.effects.push({ kind: "dmg", x: e.x + rand(-6, 6), y: e.y - 20, age: 0, dur: 0.7, text: dmg, color: type === "mag" ? "#9ad2ff" : "#ffd9a0" });
       this.emit("hit");
       if (e.hp <= 0 && !e.dead) this.killEnemy(e);
@@ -375,6 +376,7 @@
       this.updateUnits(dt);
       this.updateTowers(dt);
       this.updateProjectiles(dt);
+      this.updateAmbient(dt);
 
       for (const k in this.powerCd) this.powerCd[k] = Math.max(0, this.powerCd[k] - dt);
       for (const fx of this.effects) fx.age += dt;
@@ -711,6 +713,20 @@
           this.emit("shot", { kind: def.proj });
         }
       }
+    }
+
+    // clima ambiental de fondo: hojas/arena/nieve según la región (solo estética)
+    updateAmbient(dt) {
+      this.ambientTimer = (this.ambientTimer || 0) - dt;
+      if (this.ambientTimer > 0) return;
+      this.ambientTimer = 0.3 + rand(0, 0.35);
+      const region = this.def.region || "bosque";
+      const variant = region === "desierto" ? "arena" : region === "montana" ? "nieve" : "hoja";
+      this.effects.push({
+        kind: "ambient", variant,
+        x0: rand(-20, TA.W + 20), y0: -20, age: 0, dur: 6 + rand(0, 3),
+        drift: rand(-25, 25), fallSpd: 16 + rand(0, 12), seed: rand(0, 10),
+      });
     }
 
     updateProjectiles(dt) {

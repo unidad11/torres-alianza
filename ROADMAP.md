@@ -51,6 +51,19 @@ Arte propio dibujado por código (sin copiar gráficos de Ironhide).
   - Validado con simulaciones automáticas: sin torres se pierde siempre; con una buena
     combinación de torres (rama + maestría) se puede ganar, incluido el nivel final.
 
+## ✅ Repaso gráfico (hecho 10/07/2026)
+- Degradados y un brillo superior sutil en todas las formas del juego (héroes, enemigos, torres,
+  decorado): da sensación de volumen sin dejar de ser el mismo estilo dibujado por código.
+- Sombras del decorado proyectadas con ángulo en vez de una elipse plana debajo.
+- Viñeta sutil en los bordes del campo de batalla para dar profundidad.
+- Partículas ambientales según la región (hojas en el Bosque, arena en el Desierto, nieve en la
+  Montaña) y chispazos al golpear en cualquier combate, no solo en explosiones de área.
+- Menús: transición suave al cambiar de pantalla, botones con pulsación más viva, nubes con
+  parallax lento en la pantalla de título.
+- Techo real de esta técnica: sigue siendo un estilo vectorial dibujado por código (sin imágenes
+  ni 3D). Para un salto mayor (iluminación dinámica, brillos, muchas más partículas) habría que
+  pasar el renderizado de Canvas 2D a WebGL — pendiente de decidir si se aborda.
+
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.
 - Sonidos y música (WebAudio).

@@ -30,7 +30,14 @@ body {
 
 /* ---------- pantallas ---------- */
 .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
-.screen.visible { display: flex; }
+.screen.visible { display: flex; animation: screenIn 0.32s ease; }
+@keyframes screenIn {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen.visible { animation: none; }
+}
 
 /* ---------- botones ---------- */
 .btn {
@@ -42,9 +49,12 @@ body {
   color: var(--ink);
   cursor: pointer;
   box-shadow: 0 4px 0 rgba(40, 25, 10, 0.45);
-  transition: transform 0.06s, box-shadow 0.06s;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
 }
-.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(40, 25, 10, 0.45); }
+.btn:active { transform: translateY(3px) scale(0.98); box-shadow: 0 1px 0 rgba(40, 25, 10, 0.45); }
+@media (hover: hover) {
+  .btn:hover { filter: brightness(1.08); }
+}
 .btn.gold { background: linear-gradient(#ffd968, var(--gold) 55%, var(--gold-dark)); }
 .btn.wood { background: linear-gradient(#b97f4d, var(--wood-light) 55%, var(--wood)); color: #ffe9c4; }
 .btn.big { font-size: 26px; padding: 14px 40px; }
@@ -57,12 +67,20 @@ body {
   background: linear-gradient(#7ec7e8 0%, #b5e08c 60%, #79bd4f 61%, #58962f 100%);
 }
 .title-sky {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; inset: -5% -20%; pointer-events: none;
   background:
     radial-gradient(circle at 18% 22%, rgba(255,255,255,0.9) 0 26px, transparent 27px),
     radial-gradient(circle at 26% 25%, rgba(255,255,255,0.85) 0 18px, transparent 19px),
     radial-gradient(circle at 74% 14%, rgba(255,255,255,0.9) 0 22px, transparent 23px),
     radial-gradient(circle at 81% 18%, rgba(255,255,255,0.8) 0 15px, transparent 16px);
+  animation: driftClouds 50s linear infinite;
+}
+@keyframes driftClouds {
+  from { transform: translateX(0); }
+  to { transform: translateX(-10%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-sky { animation: none; }
 }
 .title-card {
   position: relative; text-align: center;
