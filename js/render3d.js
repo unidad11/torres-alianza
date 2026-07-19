@@ -1062,13 +1062,179 @@
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
-  // ---------- unidades: soldados y héroes ----------
-  const HERO_COLOR = { roldan: 0x9d4444, lyra: 0x4e8f5a, amir: 0xc9a04a, zahra: 0x7a5ca0, bjorn: 0x5c7a9d, frida: 0xb87fa0 };
-  function makeUnitMesh(u) {
+  // ---------- héroes, diseño propio ----------
+  const HERO_SKIN = 0xe0b088;
+
+  function buildRoldan(scale) {
     const g = new THREE.Group();
+    const armor = 0x8f8478;
+    const cape = 0x9d4444;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * scale, 0.4 * scale, 0.95 * scale, 8), toonMat(armor));
+    body.position.y = 0.58 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    const capeMesh = new THREE.Mesh(new THREE.ConeGeometry(0.32 * scale, 0.9 * scale, 6, 1, true), toonMat(cape, { side: THREE.DoubleSide }));
+    capeMesh.position.set(0, 0.55 * scale, -0.12 * scale);
+    capeMesh.rotation.x = Math.PI;
+    g.add(capeMesh);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24 * scale, 10, 10), toonMat(armor));
+    head.position.y = 1.2 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const plume = new THREE.Mesh(new THREE.ConeGeometry(0.07 * scale, 0.4 * scale, 6), toonMat(cape));
+    plume.position.set(0, 1.5 * scale, 0);
+    g.add(plume);
+    const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * scale, 0.28 * scale, 0.06 * scale, 8), toonMat(cape));
+    shield.rotation.z = Math.PI / 2;
+    shield.position.set(-0.45 * scale, 0.75 * scale, 0.15 * scale);
+    addOutline(shield, 0x1a1a1a, 1.05);
+    g.add(shield);
+    const sword = new THREE.Mesh(new THREE.ConeGeometry(0.05 * scale, 0.75 * scale, 4), toonMat(0xc9ccd4));
+    sword.position.set(0.45 * scale, 1 * scale, 0.1 * scale);
+    sword.rotation.z = -0.3;
+    addOutline(sword, 0x1a1a1a);
+    g.add(sword);
+    return g;
+  }
+
+  function buildLyra(scale) {
+    const g = new THREE.Group();
+    const robe = 0x4e8f5a;
+    const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.34 * scale, 1 * scale, 8), toonMat(robe));
+    cloak.position.y = 0.55 * scale; cloak.castShadow = true; addOutline(cloak, 0x1a1a1a);
+    g.add(cloak);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24 * scale, 10, 10), toonMat(HERO_SKIN));
+    head.position.y = 1.18 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3 * scale, 0.55 * scale, 8), toonMat(0x3a6b46));
+    hat.position.y = 1.5 * scale; addOutline(hat, 0x1a1a1a);
+    g.add(hat);
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * scale, 0.04 * scale, 1.2 * scale, 6), toonMat(0x4a3323));
+    staff.position.set(0.4 * scale, 0.85 * scale, 0);
+    g.add(staff);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.16 * scale, 10, 10), toonMat(0xff9a3a, { emissive: 0xd9601a, emissiveIntensity: 0.6 }));
+    orb.position.set(0.4 * scale, 1.5 * scale, 0);
+    addOutline(orb, 0x8a3a0a, 1.1);
+    g.userData.orb = orb;
+    g.add(orb);
+    return g;
+  }
+
+  function buildAmir(scale) {
+    const g = new THREE.Group();
+    const cloth = 0xc9a04a;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * scale, 0.34 * scale, 0.9 * scale, 8), toonMat(cloth));
+    body.position.y = 0.55 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22 * scale, 10, 10), toonMat(HERO_SKIN));
+    head.position.y = 1.12 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const turban = new THREE.Mesh(new THREE.SphereGeometry(0.24 * scale, 10, 8, 0, Math.PI * 2, 0, Math.PI / 1.6), toonMat(0xe0dcc8));
+    turban.position.y = 1.2 * scale; addOutline(turban, 0x1a1a1a);
+    g.add(turban);
+    for (const side of [-1, 1]) {
+      const blade = new THREE.Mesh(new THREE.TorusGeometry(0.32 * scale, 0.035 * scale, 6, 10, Math.PI * 1.1), toonMat(0xd4d8e0));
+      blade.position.set(side * 0.4 * scale, 0.85 * scale, 0.2 * scale);
+      blade.rotation.y = side > 0 ? 0.3 : Math.PI - 0.3;
+      addOutline(blade, 0x1a1a1a, 1.04);
+      g.add(blade);
+    }
+    return g;
+  }
+
+  function buildZahra(scale) {
+    const g = new THREE.Group();
+    const cloth = 0x7a5ca0;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * scale, 0.3 * scale, 0.88 * scale, 8), toonMat(cloth));
+    body.position.y = 0.54 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.21 * scale, 10, 10), toonMat(HERO_SKIN));
+    head.position.y = 1.08 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.24 * scale, 0.4 * scale, 8), toonMat(0x5c4480));
+    hood.position.y = 1.28 * scale; addOutline(hood, 0x1a1a1a);
+    g.add(hood);
+    const bandolier = new THREE.Mesh(new THREE.TorusGeometry(0.29 * scale, 0.04 * scale, 6, 12), toonMat(0x4a3323));
+    bandolier.rotation.z = 0.5; bandolier.position.y = 0.6 * scale;
+    g.add(bandolier);
+    for (let i = 0; i < 3; i++) {
+      const dagger = new THREE.Mesh(new THREE.ConeGeometry(0.035 * scale, 0.22 * scale, 4), toonMat(0xc9ccd4));
+      dagger.position.set(-0.15 * scale + i * 0.13 * scale, 0.75 * scale, 0.24 * scale);
+      dagger.rotation.x = Math.PI;
+      g.add(dagger);
+    }
+    return g;
+  }
+
+  function buildBjorn(scale) {
+    const g = new THREE.Group();
+    const fur = 0x5c7a9d;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * scale, 0.46 * scale, 1 * scale, 8), toonMat(fur));
+    body.position.y = 0.6 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    const furCloak = new THREE.Mesh(new THREE.ConeGeometry(0.42 * scale, 0.6 * scale, 8, 1, true), toonMat(0xd9d0c0, { side: THREE.DoubleSide }));
+    furCloak.position.set(0, 1.0 * scale, -0.1 * scale);
+    g.add(furCloak);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28 * scale, 10, 10), toonMat(HERO_SKIN));
+    head.position.y = 1.35 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.3 * scale, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), toonMat(0x4a5560));
+    helmet.position.y = 1.4 * scale; addOutline(helmet, 0x1a1a1a);
+    g.add(helmet);
+    for (const side of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06 * scale, 0.32 * scale, 6), toonMat(0xe0dcc8));
+      horn.position.set(side * 0.28 * scale, 1.55 * scale, 0);
+      horn.rotation.z = side * -0.5;
+      g.add(horn);
+    }
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.9 * scale, 6), toonMat(0x4a3323));
+    handle.position.set(0.5 * scale, 0.9 * scale, 0);
+    handle.rotation.z = -0.4;
+    g.add(handle);
+    const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.3 * scale, 0.22 * scale, 0.22 * scale), toonMat(0x6b6f78));
+    hammerHead.position.set(0.78 * scale, 1.25 * scale, 0);
+    hammerHead.rotation.z = -0.4;
+    addOutline(hammerHead, 0x1a1a1a);
+    g.add(hammerHead);
+    return g;
+  }
+
+  function buildFrida(scale) {
+    const g = new THREE.Group();
+    const robe = 0xb87fa0;
+    const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.33 * scale, 0.98 * scale, 8), toonMat(robe));
+    cloak.position.y = 0.55 * scale; cloak.castShadow = true; addOutline(cloak, 0x1a1a1a);
+    g.add(cloak);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.23 * scale, 10, 10), toonMat(HERO_SKIN));
+    head.position.y = 1.15 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.28 * scale, 0.5 * scale, 8), toonMat(0xe8ecf5, { transparent: true, opacity: 0.9 }));
+    hood.position.y = 1.42 * scale; addOutline(hood, 0x1a1a1a);
+    g.add(hood);
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * scale, 0.04 * scale, 1.15 * scale, 6), toonMat(0xd9ecff));
+    staff.position.set(0.4 * scale, 0.85 * scale, 0);
+    g.add(staff);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.16 * scale, 0), toonMat(0x9adfff, { emissive: 0x5cb8ea, emissiveIntensity: 0.6 }));
+    crystal.position.set(0.4 * scale, 1.48 * scale, 0);
+    addOutline(crystal, 0x1a4d5c, 1.1);
+    g.userData.orb = crystal;
+    g.add(crystal);
+    return g;
+  }
+
+  const HERO_BUILDERS = {
+    roldan: buildRoldan, lyra: buildLyra, amir: buildAmir,
+    zahra: buildZahra, bjorn: buildBjorn, frida: buildFrida,
+  };
+
+  // ---------- unidades: soldados y héroes ----------
+  function makeUnitMesh(u) {
     const isHero = u.kindU === "hero";
-    const color = isHero ? (HERO_COLOR[u.type] || 0xc9a04a) : 0x6f7a8f;
-    const h = isHero ? 1.1 : 0.9;
+    if (isHero) {
+      const builder = HERO_BUILDERS[u.type];
+      if (builder) return builder(1.15);
+    }
+    const g = new THREE.Group();
+    const color = 0x6f7a8f;
+    const h = 0.9;
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, h, 10), toonMat(color));
     body.position.y = h / 2;
     body.castShadow = true; addOutline(body, 0x1a1a1a, 1.1);
@@ -1077,16 +1243,12 @@
     head.position.y = h + 0.2;
     head.castShadow = true; addOutline(head, 0x1a1a1a, 1.1);
     g.add(head);
-    if (isHero) {
-      const helm = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.5, 8), toonMat(0xd9c060));
-      helm.position.y = h + 0.45; addOutline(helm, 0x1a1a1a, 1.1);
-      g.add(helm);
-    }
     return g;
   }
   function updateUnitMesh(u, g) {
     g.position.set(toX(u.x), 0, toZ(u.y));
     g.visible = !u.dead;
+    if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
   // ---------- proyectiles ----------
