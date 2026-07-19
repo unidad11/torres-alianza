@@ -182,47 +182,299 @@
   };
 
   // ---------- torres ----------
-  const TOWER_STYLE = {
-    arqueros:  { base: 0x9d7050, roof: 0xb8934f, gem: 0x4a9d6e },
-    cuartel:   { base: 0x7a6b5f, roof: 0x5c5248, gem: 0xc9a04a },
-    magos:     { base: 0x5c4a7a, roof: 0x7a5ca0, gem: 0x9d6fd4 },
-    canon:     { base: 0x5a5a5a, roof: 0x3d3d3d, gem: 0x8a8a8a },
-    hielo:     { base: 0x6f97a8, roof: 0x8fc4d9, gem: 0xbfe8f7 },
-    electrica: { base: 0x5c7a6f, roof: 0x4a9d8f, gem: 0xc9d94a },
-    apoyo:     { base: 0x8f7a4a, roof: 0xc9b37a, gem: 0xd9c98a },
-  };
-  const LEVEL_GEM = [0x8f9d7a, 0x4a90d9, 0xb87fd4];
+  // cada tipo tiene su propia silueta y gana piezas nuevas (no solo color) al subir de nivel
+  const TOWER_FIT = 0.45; // el radio original quedaba más ancho que el camino
+  const LEVEL_SCALE = [1, 1.4, 1.85]; // salto de tamaño claro entre niveles
 
-  function makeTowerMesh(tw) {
-    const st = TOWER_STYLE[tw.type] || TOWER_STYLE.arqueros;
-    const g = new THREE.Group();
+  function disposeChildren(g) {
+    while (g.children.length) {
+      const c = g.children.pop();
+      if (c.children) c.children.length = 0;
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    }
+  }
 
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 2.2, 14), toonMat(st.base));
-    base.position.y = 1.1; base.castShadow = true; addOutline(base, 0x201a14, 1.08);
-    g.add(base);
-
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.3, 4.4, 14), toonMat(st.base));
-    body.position.y = 4.4; body.castShadow = true; addOutline(body, 0x201a14, 1.08);
+  function buildArqueros(g, lv) {
+    const LEG = [0x8a6a48, 0x6b4a30, 0x4a3320];
+    const DECK = [0xa9835a, 0x8a6440, 0x6b4a30];
+    const ROOF = [0x8d6a45, 0x9a3b30, 0xc23b30];
+    const legH = 5.6;
+    const legMat = toonMat(LEG[lv]);
+    for (const [lx, lz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, legH, 8), legMat);
+      leg.position.set(lx, legH / 2, lz);
+      leg.rotation.x = lz * -0.06; leg.rotation.z = lx * 0.06;
+      leg.castShadow = true; addOutline(leg, 0x201a14);
+      g.add(leg);
+    }
+    const deck = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.7, 8), toonMat(DECK[lv]));
+    deck.position.y = legH + 0.1; deck.castShadow = true; addOutline(deck, 0x201a14);
+    g.add(deck);
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.9, 8, 1, true), toonMat(DECK[lv], { side: THREE.DoubleSide }));
+    rail.position.y = legH + 0.9; addOutline(rail, 0x201a14, 1.03);
+    g.add(rail);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.7, 2.6, 8), toonMat(ROOF[lv]));
+    roof.position.y = legH + 1.7; roof.castShadow = true; addOutline(roof, 0x201a14);
+    g.add(roof);
+    if (lv >= 1) {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.7, 5), toonMat(ROOF[lv]));
+        spike.position.set(Math.cos(a) * 2.5, legH + 0.7, Math.sin(a) * 2.5);
+        g.add(spike);
+      }
+    }
+    if (lv >= 2) {
+      const roof2 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.6, 8), toonMat(ROOF[lv]));
+      roof2.position.y = legH + 3.6; roof2.castShadow = true; addOutline(roof2, 0x201a14);
+      g.add(roof2);
+    }
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1, 8), toonMat(0x5c7a9d));
+    body.position.y = legH + 1.2; addOutline(body, 0x201a14);
     g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 10), toonMat(0xe8b98a));
+    head.position.y = legH + 1.9; addOutline(head, 0x201a14);
+    g.add(head);
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 6, 12, Math.PI), toonMat(0x4a3323));
+    bow.position.set(0.35, legH + 1.3, 0); bow.rotation.y = Math.PI / 2;
+    g.add(bow);
+    if (lv >= 2) {
+      const feather = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.6, 6), toonMat(0x5ec24a));
+      feather.position.set(0.15, legH + 2.5, 0); feather.rotation.z = -0.5;
+      g.add(feather);
+    }
+  }
 
+  function buildCuartel(g, lv) {
+    const WALL = [0x8a8172, 0xa89478, 0xd9c9a0];
+    const CREN = [0x726a5c, 0x8a7a5c, 0xb8a370];
+    const FLAG = [0x3f68b0, 0xc9c9c9, 0xe8b33b];
+    const w = 5.6, h = 4;
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, 4.4), toonMat(WALL[lv]));
+    wall.position.y = h / 2; wall.castShadow = true; addOutline(wall, 0x201a14);
+    g.add(wall);
     for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const cren = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.8), toonMat(st.base));
-      cren.position.set(Math.cos(a) * 2.4, 6.9, Math.sin(a) * 2.4);
-      cren.castShadow = true; addOutline(cren, 0x201a14, 1.08);
+      const cren = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), toonMat(CREN[lv]));
+      const side = i < 3 ? 1 : -1;
+      cren.position.set(-2.1 + (i % 3) * 2.1, h + 0.35, side * 2.05);
+      cren.castShadow = true; addOutline(cren, 0x201a14);
       g.add(cren);
     }
+    const door = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2, 12, 1, false, 0, Math.PI), toonMat(0x4a3323));
+    door.rotation.z = Math.PI; door.position.set(0, 1, 2.21);
+    g.add(door);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3, 6), toonMat(0x6b4a30));
+    pole.position.set(1.8, h + 1.5, 0); g.add(pole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.8), toonMat(FLAG[lv], { side: THREE.DoubleSide }));
+    flag.position.set(2.45, h + 2.4, 0); addOutline(flag, 0x201a14, 1.05);
+    g.userData.banner = flag;
+    g.add(flag);
+    if (lv >= 1) {
+      const corners = lv >= 2 ? [[-2.6, -1.9], [2.6, -1.9], [-2.6, 1.9], [2.6, 1.9]] : [[-2.6, -1.9], [2.6, -1.9]];
+      for (const [cx, cz] of corners) {
+        const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.65, h + 1.4, 8), toonMat(WALL[lv]));
+        turret.position.set(cx, (h + 1.4) / 2, cz); turret.castShadow = true; addOutline(turret, 0x201a14);
+        g.add(turret);
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1, 8), toonMat(CREN[lv]));
+        cap.position.set(cx, h + 1.9, cz); addOutline(cap, 0x201a14);
+        g.add(cap);
+      }
+    }
+  }
 
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(2, 1.8, 14), toonMat(st.roof));
-    roof.position.y = 7.7; roof.castShadow = true; addOutline(roof, 0x201a14, 1.08);
-    g.add(roof);
+  function buildMagos(g, lv) {
+    const SPIRE = [0x5c4a7a, 0x7a5ca0, 0xa06fd9];
+    const CAP = [0x7a5ca0, 0x9d6fd4, 0xc98fff];
+    const ORB = [0xbf9dea, 0xd9b8ff, 0xf0d9ff];
+    const spireH = 7;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2, 2, 8), toonMat(0x4a3d63));
+    base.position.y = 1; base.castShadow = true; addOutline(base, 0x201a14);
+    g.add(base);
+    const spire = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, spireH, 10), toonMat(SPIRE[lv]));
+    spire.position.y = 2 + spireH / 2; spire.castShadow = true; addOutline(spire, 0x201a14);
+    g.add(spire);
+    const capY = 2 + spireH;
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2, 10), toonMat(CAP[lv]));
+    cap.position.y = capY + 1; cap.castShadow = true; addOutline(cap, 0x201a14);
+    g.add(cap);
+    g.userData.rings = [];
+    if (lv >= 1) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.1, 6, 20), toonMat(CAP[lv]));
+      ring.rotation.x = Math.PI / 2.4; ring.position.y = capY - 0.5;
+      g.add(ring); g.userData.rings.push(ring);
+    }
+    if (lv >= 2) {
+      const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.1, 6, 20), toonMat(CAP[lv]));
+      ring2.rotation.x = -Math.PI / 2.4; ring2.position.y = capY - 0.3;
+      g.add(ring2); g.userData.rings.push(ring2);
+      g.userData.shards = [];
+      for (let i = 0; i < 3; i++) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), toonMat(ORB[lv], { emissive: 0x7a4dc9, emissiveIntensity: 0.5 }));
+        g.add(shard); g.userData.shards.push(shard);
+      }
+    }
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.6 + lv * 0.2, 1), toonMat(ORB[lv], { emissive: 0x7a4dc9, emissiveIntensity: 0.35 + lv * 0.25 }));
+    orb.position.y = capY + 2.6; addOutline(orb, 0x3d2d5c, 1.1);
+    g.userData.orb = orb;
+    g.userData.orbY = capY + 2.6;
+    g.add(orb);
+  }
 
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), toonMat(st.gem, { emissive: st.gem, emissiveIntensity: 0.3 }));
-    gem.position.y = 8.9; gem.castShadow = true; addOutline(gem, 0x1a1a1a, 1.1);
-    g.add(gem);
-    g.userData.gem = gem;
-    g.scale.setScalar(0.45); // el radio original quedaba más ancho que el camino
+  function buildCanon(g, lv) {
+    const BASE = [0x5a5a5a, 0x4a5568, 0x2a2a2a];
+    const TURRET = [0x4a4a4a, 0x3d4a5c, 0x1f1f1f];
+    const barrelLen = 3.6 + lv * 1.1, barrelR = 0.5 + lv * 0.15;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.3, 2.6, 12), toonMat(BASE[lv]));
+    base.position.y = 1.3; base.castShadow = true; addOutline(base, 0x1a1a1a);
+    g.add(base);
+    const turret = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.2, 1.6, 12), toonMat(TURRET[lv]));
+    turret.position.y = 3.4; turret.castShadow = true; addOutline(turret, 0x1a1a1a);
+    g.add(turret);
+    const offsets = lv >= 1 ? [-0.55, 0.55] : [0];
+    for (const oz of offsets) {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR + 0.05, barrelLen, 10), toonMat(TURRET[lv]));
+      barrel.rotation.z = Math.PI / 2;
+      barrel.position.set(2 + barrelLen / 2, 3.4, oz); barrel.castShadow = true; addOutline(barrel, 0x1a1a1a);
+      g.add(barrel);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(barrelR + 0.05, 0.1, 6, 12), toonMat(0x8a8a8a));
+      rim.rotation.y = Math.PI / 2; rim.position.set(2 + barrelLen, 3.4, oz);
+      g.add(rim);
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const rivet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 6), toonMat(0x8a8a8a));
+      rivet.position.set(Math.cos(a) * 2.9, 1.3, Math.sin(a) * 2.9);
+      g.add(rivet);
+    }
+    if (lv >= 1) {
+      const band = new THREE.Mesh(new THREE.TorusGeometry(2.05, lv >= 2 ? 0.16 : 0.09, 6, 16), toonMat(0xe8b33b));
+      band.rotation.x = Math.PI / 2; band.position.y = 3.4;
+      g.add(band);
+    }
+  }
 
+  function buildHielo(g, lv) {
+    const CORE = [0x9dc9e0, 0x5ca8d9, 0xaef2ff];
+    const SPIKE = [0xd9f2fa, 0xbfeafd, 0xe8ffff];
+    const coreH = 3 + lv * 1.1;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 3, 8), toonMat(0x7fa8bf));
+    base.position.y = 1.5; base.castShadow = true; addOutline(base, 0x1a3d4d);
+    g.add(base);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, coreH, 8), toonMat(CORE[lv]));
+    core.position.y = 3 + coreH / 2; core.castShadow = true; addOutline(core, 0x1a3d4d);
+    g.add(core);
+    const topY = 3 + coreH;
+    const glow = 0.15 + lv * 0.25;
+    const spikeSets = [
+      [[0, 0, 1.1, 3.2]],
+      [[0, 0, 1.1, 3.2], [0.7, 0.6, 0.7, 2.4], [-0.7, -0.5, 0.7, 2.6]],
+      [[0, 0, 1.1, 3.2], [0.7, 0.6, 0.7, 2.4], [-0.7, -0.5, 0.7, 2.6], [0.5, -0.7, 0.6, 2.2], [-0.6, 0.6, 0.6, 2]],
+    ];
+    for (const [ox, oz, r, h0] of spikeSets[lv]) {
+      const h = h0 + lv * 0.8;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), toonMat(SPIKE[lv], { emissive: 0x8fd9ec, emissiveIntensity: glow }));
+      spike.position.set(ox, topY + h / 2, oz);
+      spike.castShadow = true; addOutline(spike, 0x2d5c6b, 1.06);
+      g.add(spike);
+    }
+    if (lv >= 2) {
+      for (const side of [-1, 1]) {
+        const wing = new THREE.Mesh(new THREE.ConeGeometry(0.9, 3.4, 5), toonMat(SPIKE[lv], { emissive: 0x8fd9ec, emissiveIntensity: glow }));
+        wing.rotation.z = side * 1.15;
+        wing.position.set(side * 2.1, topY - 0.4, 0);
+        wing.castShadow = true; addOutline(wing, 0x2d5c6b, 1.06);
+        g.add(wing);
+      }
+    }
+  }
+
+  function buildElectrica(g, lv) {
+    const MAST = [0x4a6b60, 0x3a8a78, 0x2a2a2a];
+    const COIL = [0x4a9d8f, 0x3ad9c4, 0xd4f23a];
+    const ORB = [0xc9d94a, 0xeaff5a, 0xfff9b0];
+    const mastH = 6 + lv * 1.6;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.4, 2, 10), toonMat(0x5c7a6f));
+    base.position.y = 1; base.castShadow = true; addOutline(base, 0x1a2d28);
+    g.add(base);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, mastH, 8), toonMat(MAST[lv]));
+    mast.position.y = 2 + mastH / 2; mast.castShadow = true; addOutline(mast, 0x1a2d28);
+    g.add(mast);
+    const coilTop = 2 + mastH;
+    const coilCount = lv === 0 ? 2 : 4;
+    for (let i = 0; i < coilCount; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9 - i * 0.12, 0.14, 8, 16), toonMat(COIL[lv]));
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = coilTop - 3.8 + i * 0.9;
+      addOutline(ring, 0x1a2d28, 1.05);
+      g.add(ring);
+    }
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.5 + lv * 0.18, 12, 12), toonMat(ORB[lv], { emissive: 0xaad42a, emissiveIntensity: 0.45 + lv * 0.25 }));
+    orb.position.y = coilTop + 0.4; addOutline(orb, 0x5c6b1a, 1.1);
+    g.userData.orb = orb;
+    g.add(orb);
+    if (lv >= 2) {
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const bolt = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.1, 4), toonMat(0xfff9b0, { emissive: 0xd4f23a, emissiveIntensity: 0.6 }));
+        bolt.position.set(Math.cos(a) * 1, coilTop + 0.4, Math.sin(a) * 1);
+        bolt.rotation.z = Math.PI / 2; bolt.rotation.y = a;
+        g.add(bolt);
+      }
+    }
+  }
+
+  function buildApoyo(g, lv) {
+    const DRUM = [0x8f7a4a, 0xb08f4a, 0xd9b03a];
+    const BANNER = [0xc9a04a, 0xe0b050, 0xf5c93b];
+    const postH = 7 + lv * 1.5;
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.3, 2.4, 12), toonMat(DRUM[lv]));
+    drum.position.y = 1.2; drum.castShadow = true; addOutline(drum, 0x2d2210);
+    g.add(drum);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, postH, 8), toonMat(0x6b4a30));
+    post.position.y = 2.4 + postH / 2; post.castShadow = true; addOutline(post, 0x2d2210);
+    g.add(post);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 10), toonMat(0xd9c060));
+    finial.position.y = 2.4 + postH + 0.4; addOutline(finial, 0x2d2210);
+    g.add(finial);
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3.2, 4, 6), toonMat(BANNER[lv], { side: THREE.DoubleSide }));
+    banner.position.set(1.3, 2.4 + postH * 0.55, 0);
+    addOutline(banner, 0x2d2210, 1.04);
+    g.userData.banner = banner;
+    g.add(banner);
+    if (lv >= 2) {
+      const banner2 = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3.2, 4, 6), toonMat(BANNER[lv], { side: THREE.DoubleSide }));
+      banner2.position.set(-1.3, 2.4 + postH * 0.4, 0); banner2.rotation.y = Math.PI;
+      addOutline(banner2, 0x2d2210, 1.04);
+      g.userData.banner2 = banner2;
+      g.add(banner2);
+    }
+    if (lv >= 1) {
+      const aura = new THREE.Mesh(new THREE.TorusGeometry(2.9 + lv * 0.3, 0.08 + lv * 0.05, 6, 24), toonMat(0xf5c33b, { emissive: 0xe8b33b, emissiveIntensity: 0.3 + lv * 0.25 }));
+      aura.rotation.x = Math.PI / 2; aura.position.y = 0.05;
+      g.add(aura);
+    }
+  }
+
+  const TOWER_BUILDERS = {
+    arqueros: buildArqueros, cuartel: buildCuartel, magos: buildMagos,
+    canon: buildCanon, hielo: buildHielo, electrica: buildElectrica, apoyo: buildApoyo,
+  };
+
+  function populateTower(g, tw) {
+    disposeChildren(g);
+    g.userData.orb = null; g.userData.rings = null; g.userData.shards = null;
+    g.userData.banner = null; g.userData.banner2 = null;
+    const lv = Math.max(0, Math.min(2, tw.level || 0));
+    const build = TOWER_BUILDERS[tw.type] || TOWER_BUILDERS.arqueros;
+    build(g, lv);
+    g.scale.setScalar(TOWER_FIT * LEVEL_SCALE[lv]);
+    g.userData.builtLevel = lv;
+  }
+
+  function makeTowerMesh(tw) {
+    const g = new THREE.Group();
+    populateTower(g, tw);
     return g;
   }
   function updateTowerMesh(tw, g) {
@@ -232,9 +484,17 @@
     }
     g.position.set(toX(g.userData.gx), 0, toZ(g.userData.gy));
     if (typeof tw.aimAngle === "number") g.rotation.y = -tw.aimAngle;
-    const lvl = Math.max(0, Math.min(2, (tw.level || 1) - 1));
-    g.userData.gem.material.color.setHex(LEVEL_GEM[lvl]);
-    g.userData.gem.rotation.y += 0.02;
+    const lv = Math.max(0, Math.min(2, tw.level || 0));
+    if (g.userData.builtLevel !== lv) populateTower(g, tw);
+    const t = performance.now() * 0.001;
+    if (g.userData.orb) g.userData.orb.rotation.y += 0.02;
+    if (g.userData.rings) for (const r of g.userData.rings) r.rotation.z += 0.01;
+    if (g.userData.shards) g.userData.shards.forEach((s, i) => {
+      const a = t * 1.2 + (i / g.userData.shards.length) * Math.PI * 2;
+      s.position.set(Math.cos(a) * 1.3, g.userData.orbY, Math.sin(a) * 1.3);
+    });
+    if (g.userData.banner) g.userData.banner.rotation.y = Math.sin(t * 1.5) * 0.15;
+    if (g.userData.banner2) g.userData.banner2.rotation.y = Math.PI + Math.sin(t * 1.5) * 0.15;
   }
 
   // ---------- enemigos (forma genérica + color por tipo) ----------
