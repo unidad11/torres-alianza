@@ -1,10 +1,12 @@
 /* Service worker: guarda el juego en caché para jugar sin conexión */
 "use strict";
-const CACHE = "torres-alianza-v2";
+const CACHE = "torres-alianza-v4";
 const FILES = [
   ".", "index.html", "manifest.json",
   "css/style.css",
-  "js/data.js", "js/sprites.js", "js/engine.js", "js/render.js", "js/ui.js", "js/main.js",
+  "js/data.js", "js/sprites.js", "js/engine.js", "js/render.js", "js/webgl.js",
+  "js/vendor/three.min.js", "js/render3d.js",
+  "js/audio.js", "js/ui.js", "js/main.js",
   "icon-180.png", "icon-512.png",
 ];
 

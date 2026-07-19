@@ -238,6 +238,7 @@
     game = new TA.Game(levelDef, heroTypes || ["roldan", "lyra"], progression);
     TA.currentGame = game;
     terrain = TA.buildTerrain(levelDef, game.paths);
+    TA.render3d.buildTerrain(levelDef, game.paths);
     selection = null; targeting = null; rallyTower = null;
     game.onEvent = onGameEvent;
     $("hud-level-name").textContent = levelDef.id + ". " + levelDef.name;
@@ -521,15 +522,15 @@
   function placeMenu(menu, cx, cy) {
     menu.classList.add("open");
     const holder = $("cv-holder");
-    // coordenadas de lienzo → píxeles dentro del contenedor
-    // (el lienzo queda centrado, así que hay que sumar su desplazamiento)
+    // coordenadas de juego → píxeles de pantalla, proyectadas desde la cámara 3D
     const cvRect = $("cv").getBoundingClientRect();
     const hRect = holder.getBoundingClientRect();
-    const px = cvRect.left - hRect.left + cx * canvasScale;
-    const py = cvRect.top - hRect.top + cy * canvasScale;
+    const frac = TA.render3d.gameToScreen(cx, cy);
+    const px = cvRect.left - hRect.left + frac.x * cvRect.width;
+    const py = cvRect.top - hRect.top + frac.y * cvRect.height;
     menu.style.left = Math.max(8, Math.min(holder.clientWidth - menu.offsetWidth - 8, px - menu.offsetWidth / 2)) + "px";
-    const above = py - menu.offsetHeight - 46 * canvasScale;
-    menu.style.top = Math.max(8, above > 8 ? above : py + 40 * canvasScale) + "px";
+    const above = py - menu.offsetHeight - 46;
+    menu.style.top = Math.max(8, above > 8 ? above : py + 40) + "px";
   }
 
   function closeBuildMenu(keepSel) {
@@ -540,10 +541,7 @@
   // ---------- entrada táctil / ratón ----------
   function canvasPoint(ev) {
     const rect = $("cv").getBoundingClientRect();
-    return {
-      x: (ev.clientX - rect.left) / rect.width * TA.W,
-      y: (ev.clientY - rect.top) / rect.height * TA.H,
-    };
+    return TA.render3d.screenToGame(ev.clientX, ev.clientY, rect);
   }
 
   function onTap(ev) {
@@ -591,17 +589,16 @@
   function resize() {
     const holder = $("cv-holder");
     const w = holder.clientWidth, h = holder.clientHeight;
-    canvasScale = Math.min(w / TA.W, h / TA.H);
     const cv = $("cv");
-    cv.style.width = (TA.W * canvasScale) + "px";
-    cv.style.height = (TA.H * canvasScale) + "px";
+    cv.style.width = w + "px";
+    cv.style.height = h + "px";
+    TA.render3d.resize(w, h);
   }
 
   // ---------- arranque de la interfaz ----------
   UI.init = function () {
     const cv = $("cv");
-    cv.width = TA.W; cv.height = TA.H;
-    UI.ctx = cv.getContext("2d");
+    TA.render3d.init(cv);
 
     // el audio necesita un toque real del usuario para arrancar (norma de iOS/Safari)
     window.addEventListener("pointerdown", TA.audio.unlock, { once: true });
@@ -643,7 +640,7 @@
 
   UI.frame = function () {
     if (game && document.getElementById("scr-game").classList.contains("visible")) {
-      TA.render(UI.ctx, game, terrain, selection);
+      TA.render3d.render(game);
       updateHud();
     }
   };
