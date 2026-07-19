@@ -932,12 +932,102 @@
     return g;
   }
 
+  function buildYeti(scale) {
+    const g = new THREE.Group();
+    const fur = 0xf0f5f7;
+    const furShade = 0xc9d9e0;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.7 * scale, 12, 12), toonMat(fur));
+    body.scale.set(1.05, 1.2, 0.9);
+    body.position.y = 0.9 * scale; body.castShadow = true; addOutline(body, 0x1a2a30);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * scale, 0.28 * scale, 1.05 * scale, 8), toonMat(fur));
+      arm.position.set(side * 0.82 * scale, 0.85 * scale, 0.1 * scale);
+      arm.rotation.z = side * 0.45;
+      arm.rotation.x = -0.3;
+      arm.castShadow = true; addOutline(arm, 0x1a2a30);
+      g.add(arm);
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(0.22 * scale, 8, 8), toonMat(furShade));
+      fist.position.set(side * 1.15 * scale, 0.5 * scale, 0.35 * scale);
+      addOutline(fist, 0x1a2a30);
+      g.add(fist);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.42 * scale, 10, 10), toonMat(fur));
+    head.position.y = 1.85 * scale; head.castShadow = true; addOutline(head, 0x1a2a30);
+    g.add(head);
+    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.2 * scale, 8, 8), toonMat(furShade));
+    muzzle.position.set(0, 1.75 * scale, 0.36 * scale);
+    g.add(muzzle);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08 * scale, 8, 8), toonMat(0x5cd9ff, { emissive: 0x2a9dcf, emissiveIntensity: 0.7 }));
+      eye.position.set(side * 0.18 * scale, 1.92 * scale, 0.35 * scale);
+      g.add(eye);
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.07 * scale, 0.35 * scale, 6), toonMat(0xd9ecff));
+      horn.position.set(side * 0.28 * scale, 2.2 * scale, 0);
+      horn.rotation.z = side * -0.3;
+      addOutline(horn, 0x1a2a30);
+      g.add(horn);
+    }
+    for (const side of [-1, 1]) {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.05 * scale, 0.16 * scale, 5), toonMat(0xffffff));
+      tooth.position.set(side * 0.1 * scale, 1.62 * scale, 0.4 * scale);
+      tooth.rotation.x = Math.PI;
+      g.add(tooth);
+    }
+    g.userData.bob = 0.08 * scale;
+    return g;
+  }
+
+  function buildColoso(scale) {
+    const g = new THREE.Group();
+    const stone = 0x8a8478;
+    const stoneDark = 0x6b6558;
+    const moss = 0x5c8f4e;
+    const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.5 * scale, 0.65 * scale, 0.7 * scale, 8), toonMat(stoneDark));
+    legs.position.y = 0.35 * scale; legs.castShadow = true; addOutline(legs, 0x1a1a18);
+    g.add(legs);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1.1 * scale, 0.9 * scale, 0.75 * scale), toonMat(stone));
+    torso.position.y = 1.05 * scale; torso.castShadow = true; addOutline(torso, 0x1a1a18);
+    g.add(torso);
+    for (const side of [-1, 1]) {
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 8, 8), toonMat(stone));
+      shoulder.position.set(side * 0.6 * scale, 1.4 * scale, 0);
+      shoulder.castShadow = true; addOutline(shoulder, 0x1a1a18);
+      g.add(shoulder);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * scale, 0.26 * scale, 0.85 * scale, 8), toonMat(stoneDark));
+      arm.position.set(side * 0.68 * scale, 0.85 * scale, 0);
+      arm.rotation.z = side * -0.15;
+      arm.castShadow = true; addOutline(arm, 0x1a1a18);
+      g.add(arm);
+      const fist = new THREE.Mesh(new THREE.BoxGeometry(0.34 * scale, 0.3 * scale, 0.32 * scale), toonMat(stone));
+      fist.position.set(side * 0.72 * scale, 0.42 * scale, 0);
+      addOutline(fist, 0x1a1a18);
+      g.add(fist);
+    }
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5 * scale, 0.45 * scale, 0.45 * scale), toonMat(stoneDark));
+    head.position.y = 1.75 * scale; head.castShadow = true; addOutline(head, 0x1a1a18);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 6, 6), toonMat(0xff9a3a, { emissive: 0xd9601a, emissiveIntensity: 0.7 }));
+      eye.position.set(side * 0.13 * scale, 1.78 * scale, 0.25 * scale);
+      g.add(eye);
+    }
+    for (const [mx, my, mz] of [[0.35, 1.2, 0.3], [-0.4, 0.5, 0.3], [0.1, 1.6, -0.3]]) {
+      const patch = new THREE.Mesh(new THREE.SphereGeometry(0.14 * scale, 6, 6), toonMat(moss));
+      patch.scale.set(1, 0.4, 1);
+      patch.position.set(mx * scale, my * scale, mz * scale);
+      g.add(patch);
+    }
+    g.userData.bob = 0.03 * scale;
+    return g;
+  }
+
   const ENEMY_BUILDERS = {
     goblin: buildGoblin, lobo: buildLobo, orco: buildOrco,
     chaman: buildChaman, ogro: buildOgro, berserker: buildBerserker,
     murcielago: buildMurcielago, gargola: buildGargola, escorpion: buildEscorpion,
     momia: buildMomia, gargolaRey: buildGargolaRey, espectro_alado: buildEspectroAlado,
-    enjambre: buildEnjambre,
+    enjambre: buildEnjambre, yeti: buildYeti, coloso: buildColoso,
   };
 
   function makeEnemyMesh(e) {
