@@ -702,9 +702,242 @@
     return g;
   }
 
+  // ---------- 7 enemigos del Desierto, diseño propio ----------
+  function buildMurcielago(scale) {
+    const g = new THREE.Group();
+    const skin = 0x4a3a5c;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 10, 10), toonMat(skin));
+    body.scale.set(1, 1.1, 0.8);
+    body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.ConeGeometry(0.55 * scale, 0.12 * scale, 3), toonMat(skin, { transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+      wing.rotation.z = side * Math.PI / 2;
+      wing.rotation.y = 0.3;
+      wing.position.set(side * 0.55 * scale, 0.05 * scale, 0);
+      g.userData["wing" + side] = wing;
+      addOutline(wing, 0x1a1a1a, 1.05);
+      g.add(wing);
+    }
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09 * scale, 0.28 * scale, 5), toonMat(skin));
+      ear.position.set(side * 0.14 * scale, 0.45 * scale, 0);
+      g.add(ear);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05 * scale, 6, 6), toonMat(0xd9302a, { emissive: 0x8a1a1a, emissiveIntensity: 0.5 }));
+      eye.position.set(side * 0.12 * scale, 0.32 * scale, 0.26 * scale);
+      g.add(eye);
+    }
+    g.userData.wingFlap = true;
+    return g;
+  }
+
+  function buildGargola(scale) {
+    const g = new THREE.Group();
+    const stone = 0x7a7a72;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.36 * scale, 0.45 * scale, 0.9 * scale, 8), toonMat(stone));
+    body.position.y = 0.55 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.ConeGeometry(0.7 * scale, 0.15 * scale, 3), toonMat(0x5c5c54, { side: THREE.DoubleSide }));
+      wing.rotation.z = side * Math.PI / 2.3;
+      wing.rotation.y = 0.2;
+      wing.position.set(side * 0.65 * scale, 0.75 * scale, -0.1 * scale);
+      g.userData["wing" + side] = wing;
+      addOutline(wing, 0x1a1a1a, 1.05);
+      g.add(wing);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 10, 10), toonMat(stone));
+    head.position.y = 1.15 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.07 * scale, 0.35 * scale, 5), toonMat(0x3d3d38));
+      horn.position.set(side * 0.16 * scale, 1.42 * scale, 0);
+      horn.rotation.z = side * -0.3;
+      g.add(horn);
+    }
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06 * scale, 6, 6), toonMat(0xd9903a, { emissive: 0xaa5a1a, emissiveIntensity: 0.6 }));
+      eye.position.set(side * 0.13 * scale, 1.18 * scale, 0.27 * scale);
+      g.add(eye);
+    }
+    g.userData.wingFlap = true;
+    return g;
+  }
+
+  function buildEscorpion(scale) {
+    const g = new THREE.Group();
+    const shell = 0x7a3a2a;
+    for (let i = 0; i < 3; i++) {
+      const seg = new THREE.Mesh(new THREE.SphereGeometry(0.28 * scale - i * 0.02, 8, 8), toonMat(shell));
+      seg.scale.set(1, 0.75, 1.1);
+      seg.position.set(-0.1 * scale - i * 0.28 * scale, 0.28 * scale, 0);
+      seg.castShadow = true; addOutline(seg, 0x1a1a1a);
+      g.add(seg);
+    }
+    for (const side of [-1, 1]) {
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.16 * scale, 0.4 * scale, 6), toonMat(shell));
+      claw.rotation.z = Math.PI / 2;
+      claw.position.set(0.42 * scale, 0.3 * scale, side * 0.22 * scale);
+      claw.castShadow = true; addOutline(claw, 0x1a1a1a);
+      g.add(claw);
+    }
+    const tailPts = [[-0.4, 0.3], [-0.55, 0.5], [-0.62, 0.78], [-0.5, 1.0], [-0.28, 1.1]];
+    for (let i = 0; i < tailPts.length; i++) {
+      const [tx, ty] = tailPts[i];
+      const seg = new THREE.Mesh(new THREE.SphereGeometry((0.1 - i * 0.006) * scale, 8, 8), toonMat(shell));
+      seg.position.set(tx * scale, ty * scale, 0);
+      addOutline(seg, 0x1a1a1a);
+      g.add(seg);
+      if (i > 0) {
+        const [px, py] = tailPts[i - 1];
+        const dx = tx - px, dy = ty - py;
+        const len = Math.hypot(dx, dy);
+        const link = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * scale, 0.08 * scale, len * scale, 6), toonMat(shell));
+        link.position.set((tx + px) / 2 * scale, (ty + py) / 2 * scale, 0);
+        link.rotation.z = Math.atan2(-dx, dy);
+        g.add(link);
+      }
+    }
+    const [lastX, lastY] = tailPts[tailPts.length - 1];
+    const stinger = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.26 * scale, 6), toonMat(0x2d1a12));
+    stinger.position.set(lastX * scale, (lastY + 0.16) * scale, 0);
+    stinger.rotation.z = 0.4;
+    addOutline(stinger, 0x1a1a1a);
+    g.add(stinger);
+    for (const [lx, lz] of [[-0.1, -0.2], [-0.1, 0.2], [-0.4, -0.22], [-0.4, 0.22]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * scale, 0.04 * scale, 0.3 * scale, 5), toonMat(0x5c2a1e));
+      leg.position.set(lx * scale, 0.12 * scale, lz * scale);
+      leg.rotation.x = lz > 0 ? 0.6 : -0.6;
+      g.add(leg);
+    }
+    g.userData.bob = 0.04 * scale;
+    return g;
+  }
+
+  function buildMomia(scale) {
+    const g = new THREE.Group();
+    const wrap = 0xc9b076;
+    const wrapDark = 0x8f7a4a;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34 * scale, 0.4 * scale, 1 * scale, 8), toonMat(wrap));
+    body.position.y = 0.6 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (let i = 0; i < 3; i++) {
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.38 * scale, 0.075 * scale, 6, 16), toonMat(wrapDark));
+      band.rotation.x = Math.PI / 2;
+      band.position.y = (0.32 + i * 0.3) * scale;
+      addOutline(band, 0x1a1a1a, 1.03);
+      g.add(band);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3 * scale, 10, 10), toonMat(wrap));
+    head.position.y = 1.35 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const headBand = new THREE.Mesh(new THREE.TorusGeometry(0.31 * scale, 0.06 * scale, 6, 16), toonMat(wrapDark));
+    headBand.rotation.x = Math.PI / 2; headBand.rotation.z = 0.3;
+    headBand.position.set(0, 1.3 * scale, 0);
+    g.add(headBand);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * scale, 0.09 * scale, 0.6 * scale, 6), toonMat(wrap));
+      arm.rotation.z = side * 0.55;
+      arm.rotation.x = -0.5;
+      arm.position.set(side * 0.4 * scale, 0.85 * scale, 0.32 * scale);
+      arm.castShadow = true; addOutline(arm, 0x1a1a1a);
+      g.add(arm);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06 * scale, 6, 6), toonMat(0x7cfc9a, { emissive: 0x3fa85c, emissiveIntensity: 0.7 }));
+      eye.position.set(side * 0.12 * scale, 1.38 * scale, 0.26 * scale);
+      g.add(eye);
+    }
+    g.userData.bob = 0.05 * scale;
+    return g;
+  }
+
+  function buildGargolaRey(scale) {
+    const g = new THREE.Group();
+    const stone = 0x5c5c54;
+    const gold = 0xd9b03a;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5 * scale, 0.62 * scale, 1.3 * scale, 10), toonMat(stone));
+    body.position.y = 0.75 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.ConeGeometry(1.1 * scale, 0.2 * scale, 3), toonMat(0x4a4a44, { side: THREE.DoubleSide }));
+      wing.rotation.z = side * Math.PI / 2.3;
+      wing.rotation.y = 0.2;
+      wing.position.set(side * 1 * scale, 1.05 * scale, -0.15 * scale);
+      g.userData["wing" + side] = wing;
+      addOutline(wing, 0x1a1a1a, 1.05);
+      g.add(wing);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.44 * scale, 10, 10), toonMat(stone));
+    head.position.y = 1.65 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (let i = -1; i <= 1; i++) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.45 * scale, 5), toonMat(gold));
+      horn.position.set(i * 0.2 * scale, 2.05 * scale, 0);
+      horn.rotation.z = i * -0.25;
+      addOutline(horn, 0x1a1a1a);
+      g.add(horn);
+    }
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09 * scale, 8, 8), toonMat(0xff7a2a, { emissive: 0xd94a1a, emissiveIntensity: 0.7 }));
+      eye.position.set(side * 0.17 * scale, 1.68 * scale, 0.36 * scale);
+      g.add(eye);
+    }
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.5 * scale, 0.08 * scale, 6, 16), toonMat(gold));
+    collar.rotation.x = Math.PI / 2; collar.position.y = 1.35 * scale;
+    addOutline(collar, 0x1a1a1a, 1.05);
+    g.add(collar);
+    g.userData.wingFlap = true;
+    return g;
+  }
+
+  function buildEspectroAlado(scale) {
+    const g = new THREE.Group();
+    const ghost = 0xbfd9ea;
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.32 * scale, 0.9 * scale, 8), toonMat(ghost, { transparent: true, opacity: 0.55 }));
+    body.position.y = 0.55 * scale; body.rotation.x = Math.PI;
+    addOutline(body, 0x5c7a8f, 1.05);
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.26 * scale, 10, 10), toonMat(ghost, { transparent: true, opacity: 0.65 }));
+    head.position.y = 1.05 * scale;
+    addOutline(head, 0x5c7a8f, 1.05);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.ConeGeometry(0.5 * scale, 0.1 * scale, 3), toonMat(0xd9ecff, { transparent: true, opacity: 0.4, side: THREE.DoubleSide }));
+      wing.rotation.z = side * Math.PI / 2;
+      wing.rotation.y = 0.3;
+      wing.position.set(side * 0.45 * scale, 0.85 * scale, -0.1 * scale);
+      g.userData["wing" + side] = wing;
+      g.add(wing);
+    }
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05 * scale, 6, 6), toonMat(0x9adfff, { emissive: 0x5cb8ea, emissiveIntensity: 0.8 }));
+      eye.position.set(side * 0.1 * scale, 1.08 * scale, 0.2 * scale);
+      g.add(eye);
+    }
+    g.userData.wingFlap = true;
+    return g;
+  }
+
+  function buildEnjambre(scale) {
+    const g = new THREE.Group();
+    const bug = 0x8a9d3a;
+    const offsets = [[0, 0.3, 0], [0.18, 0.4, 0.1], [-0.18, 0.35, -0.12], [0.1, 0.5, -0.15], [-0.12, 0.48, 0.15], [0, 0.25, 0.2]];
+    g.userData.parts = [];
+    offsets.forEach(([ox, oy, oz], i) => {
+      const part = new THREE.Mesh(new THREE.SphereGeometry(0.13 * scale, 8, 8), toonMat(bug));
+      part.position.set(ox * scale, oy * scale, oz * scale);
+      addOutline(part, 0x1a1a1a, 1.1);
+      g.add(part);
+      g.userData.parts.push({ mesh: part, base: [ox * scale, oy * scale, oz * scale], phase: i });
+    });
+    return g;
+  }
+
   const ENEMY_BUILDERS = {
     goblin: buildGoblin, lobo: buildLobo, orco: buildOrco,
     chaman: buildChaman, ogro: buildOgro, berserker: buildBerserker,
+    murcielago: buildMurcielago, gargola: buildGargola, escorpion: buildEscorpion,
+    momia: buildMomia, gargolaRey: buildGargolaRey, espectro_alado: buildEspectroAlado,
+    enjambre: buildEnjambre,
   };
 
   function makeEnemyMesh(e) {
@@ -718,11 +951,24 @@
   function updateEnemyMesh(e, g) {
     g.position.set(toX(e.x), g.userData.baseHover, toZ(e.y));
     if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
+    const t = performance.now() * 0.001;
     if (g.userData.fly) {
-      g.position.y = g.userData.baseHover + Math.sin(performance.now() * 0.004 + e.x) * 0.15;
+      g.position.y = g.userData.baseHover + Math.sin(t * 4 + e.x) * 0.15;
     } else if (g.userData.bob) {
-      g.position.y = g.userData.baseHover + Math.sin(performance.now() * 0.006 + e.x) * g.userData.bob;
+      g.position.y = g.userData.baseHover + Math.sin(t * 6 + e.x) * g.userData.bob;
     }
+    if (g.userData.wingFlap) {
+      const flap = Math.sin(t * 8 + e.x) * 0.4;
+      if (g.userData.wing1) g.userData.wing1.rotation.x = flap;
+      if (g.userData["wing-1"]) g.userData["wing-1"].rotation.x = -flap;
+    }
+    if (g.userData.parts) g.userData.parts.forEach((p) => {
+      p.mesh.position.set(
+        p.base[0] + Math.sin(t * 4 + p.phase) * 0.15,
+        p.base[1] + Math.cos(t * 5 + p.phase * 1.3) * 0.15,
+        p.base[2] + Math.sin(t * 3.5 + p.phase * 0.7) * 0.15
+      );
+    });
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
