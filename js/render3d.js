@@ -497,10 +497,10 @@
     if (g.userData.banner2) g.userData.banner2.rotation.y = Math.PI + Math.sin(t * 1.5) * 0.15;
   }
 
-  // ---------- enemigos (forma genérica + color por tipo) ----------
-  function makeEnemyMesh(e) {
+  // ---------- enemigos ----------
+  // forma genérica (color por hash) para los tipos que aún no tienen arte propio
+  function buildGenericEnemy(scale, e) {
     const g = new THREE.Group();
-    const scale = Math.max(0.6, (e.r || 12) / 12);
     const color = hashColor(e.type || "enemigo", 0.35, e.boss ? 0.42 : 0.5);
 
     const body = new THREE.Mesh(
@@ -528,15 +528,202 @@
         g.add(wing);
       }
     }
+    return g;
+  }
 
-    g.userData.hover = e.fly ? 1.9 * scale : 0.65 * scale;
+  // ---------- 6 enemigos del Bosque, diseño propio ----------
+  function buildGoblin(scale) {
+    const g = new THREE.Group();
+    const skin = 0x6b8f4e;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35 * scale, 0.42 * scale, 0.8 * scale, 8), toonMat(skin));
+    body.position.y = 0.5 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 10, 10), toonMat(skin));
+    head.position.y = 1.05 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14 * scale, 0.5 * scale, 6), toonMat(skin));
+      ear.position.set(side * 0.42 * scale, 1.1 * scale, 0);
+      ear.rotation.z = side * -1.1;
+      addOutline(ear, 0x1a1a1a);
+      g.add(ear);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 6, 6), toonMat(0xffe066));
+      eye.position.set(side * 0.16 * scale, 1.08 * scale, 0.34 * scale);
+      g.add(eye);
+    }
+    const dagger = new THREE.Mesh(new THREE.ConeGeometry(0.07 * scale, 0.5 * scale, 4), toonMat(0x9a9a9a));
+    dagger.position.set(0.45 * scale, 0.55 * scale, 0.2 * scale);
+    dagger.rotation.z = -0.6;
+    g.add(dagger);
+    g.userData.bob = 0.08 * scale;
+    return g;
+  }
+
+  function buildLobo(scale) {
+    const g = new THREE.Group();
+    const fur = 0x7a6f5c;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * scale, 0.32 * scale, 1.1 * scale, 8), toonMat(fur));
+    body.rotation.z = Math.PI / 2;
+    body.position.y = 0.45 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const [lx, lz] of [[-0.35, -0.15], [0.35, -0.15], [-0.35, 0.15], [0.35, 0.15]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * scale, 0.07 * scale, 0.45 * scale, 6), toonMat(fur));
+      leg.position.set(lx * scale, 0.22 * scale, lz * scale);
+      g.add(leg);
+    }
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22 * scale, 0.55 * scale, 8), toonMat(fur));
+    head.rotation.z = Math.PI / 2;
+    head.position.set(0.65 * scale, 0.55 * scale, 0);
+    head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.22 * scale, 5), toonMat(fur));
+      ear.position.set(0.55 * scale, 0.78 * scale, side * 0.12 * scale);
+      g.add(ear);
+    }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.1 * scale, 0.5 * scale, 6), toonMat(fur));
+    tail.rotation.z = -Math.PI / 2.4;
+    tail.position.set(-0.65 * scale, 0.55 * scale, 0);
+    g.add(tail);
+    g.userData.bob = 0.05 * scale;
+    return g;
+  }
+
+  function buildOrco(scale) {
+    const g = new THREE.Group();
+    const skin = 0x5c7a4e;
+    const armor = 0x6b5c4a;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * scale, 0.5 * scale, 1 * scale, 8), toonMat(skin));
+    body.position.y = 0.6 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(0.3 * scale, 0.2 * scale, 0.35 * scale), toonMat(armor));
+      pad.position.set(side * 0.42 * scale, 1.05 * scale, 0);
+      pad.castShadow = true; addOutline(pad, 0x1a1a1a);
+      g.add(pad);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.36 * scale, 10, 10), toonMat(skin));
+    head.position.y = 1.4 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06 * scale, 0.22 * scale, 5), toonMat(0xeee8d5));
+      tusk.position.set(side * 0.14 * scale, 1.27 * scale, 0.3 * scale);
+      tusk.rotation.x = -0.4;
+      g.add(tusk);
+    }
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.46 * scale, 0.46 * scale, 0.12 * scale, 8), toonMat(0x3d2d1d));
+    belt.position.y = 0.35 * scale; g.add(belt);
+    g.userData.bob = 0.06 * scale;
+    return g;
+  }
+
+  function buildChaman(scale) {
+    const g = new THREE.Group();
+    const robe = 0x6b5c8f;
+    const skin = 0x6b8f4e;
+    const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.42 * scale, 1.1 * scale, 8), toonMat(robe));
+    cloak.position.y = 0.55 * scale; cloak.castShadow = true; addOutline(cloak, 0x1a1a1a);
+    g.add(cloak);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 10, 10), toonMat(skin));
+    head.position.y = 1.3 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.38 * scale, 0.5 * scale, 8), toonMat(robe));
+    hood.position.y = 1.55 * scale; addOutline(hood, 0x1a1a1a);
+    g.add(hood);
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * scale, 0.04 * scale, 1.4 * scale, 6), toonMat(0x4a3323));
+    staff.position.set(0.4 * scale, 0.9 * scale, 0);
+    g.add(staff);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.16 * scale, 10, 10), toonMat(0x7cfc9a, { emissive: 0x3fa85c, emissiveIntensity: 0.5 }));
+    orb.position.set(0.4 * scale, 1.65 * scale, 0);
+    addOutline(orb, 0x1a4d2d, 1.1);
+    g.userData.orb = orb;
+    g.add(orb);
+    g.userData.bob = 0.07 * scale;
+    return g;
+  }
+
+  function buildOgro(scale) {
+    const g = new THREE.Group();
+    const skin = 0x8a6f4a;
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.75 * scale, 12, 12), toonMat(skin));
+    belly.scale.set(1, 1.15, 0.9);
+    belly.position.y = 0.9 * scale; belly.castShadow = true; addOutline(belly, 0x1a1a1a);
+    g.add(belly);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * scale, 0.24 * scale, 1 * scale, 8), toonMat(skin));
+      arm.position.set(side * 0.85 * scale, 0.75 * scale, 0);
+      arm.rotation.z = side * 0.3;
+      arm.castShadow = true; addOutline(arm, 0x1a1a1a);
+      g.add(arm);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 10, 10), toonMat(skin));
+    head.position.y = 1.85 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    for (const side of [-1, 1]) {
+      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.3 * scale, 5), toonMat(0xeee8d5));
+      tusk.position.set(side * 0.16 * scale, 1.68 * scale, 0.32 * scale);
+      tusk.rotation.x = -0.5;
+      g.add(tusk);
+    }
+    const club = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * scale, 0.22 * scale, 1.3 * scale, 8), toonMat(0x5c4a30));
+    club.position.set(1.15 * scale, 1 * scale, 0.1 * scale);
+    club.rotation.z = 0.5;
+    club.castShadow = true; addOutline(club, 0x1a1a1a);
+    g.add(club);
+    g.userData.bob = 0.1 * scale;
+    return g;
+  }
+
+  function buildBerserker(scale) {
+    const g = new THREE.Group();
+    const skin = 0x9d4a3a;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * scale, 0.52 * scale, 1 * scale, 8), toonMat(skin));
+    body.position.y = 0.6 * scale; body.castShadow = true; addOutline(body, 0x1a1a1a);
+    g.add(body);
+    for (const side of [-1, 1]) {
+      const pauldron = new THREE.Mesh(new THREE.ConeGeometry(0.22 * scale, 0.3 * scale, 6), toonMat(0x3d2d2d));
+      pauldron.position.set(side * 0.45 * scale, 1.05 * scale, 0);
+      addOutline(pauldron, 0x1a1a1a);
+      g.add(pauldron);
+    }
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28 * scale, 10, 10), toonMat(skin));
+    head.position.y = 1.35 * scale; head.castShadow = true; addOutline(head, 0x1a1a1a);
+    g.add(head);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.9 * scale, 6), toonMat(0x4a3323));
+    handle.position.set(0.6 * scale, 0.9 * scale, 0);
+    handle.rotation.z = -0.5;
+    g.add(handle);
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.22 * scale, 0.4 * scale, 4), toonMat(0x9a9a9a));
+    blade.position.set(0.95 * scale, 1.3 * scale, 0);
+    blade.rotation.z = -0.5;
+    addOutline(blade, 0x1a1a1a);
+    g.add(blade);
+    g.userData.bob = 0.09 * scale;
+    return g;
+  }
+
+  const ENEMY_BUILDERS = {
+    goblin: buildGoblin, lobo: buildLobo, orco: buildOrco,
+    chaman: buildChaman, ogro: buildOgro, berserker: buildBerserker,
+  };
+
+  function makeEnemyMesh(e) {
+    const scale = Math.max(0.6, (e.r || 12) / 12);
+    const builder = ENEMY_BUILDERS[e.type];
+    const g = builder ? builder(scale) : buildGenericEnemy(scale, e);
     g.userData.fly = !!e.fly;
+    g.userData.baseHover = e.fly ? 1.9 * scale : (builder ? 0 : 0.65 * scale);
     return g;
   }
   function updateEnemyMesh(e, g) {
-    g.position.set(toX(e.x), g.userData.hover, toZ(e.y));
+    g.position.set(toX(e.x), g.userData.baseHover, toZ(e.y));
     if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
-    if (g.userData.fly) g.position.y = g.userData.hover + Math.sin(performance.now() * 0.004 + e.x) * 0.15;
+    if (g.userData.fly) {
+      g.position.y = g.userData.baseHover + Math.sin(performance.now() * 0.004 + e.x) * 0.15;
+    } else if (g.userData.bob) {
+      g.position.y = g.userData.baseHover + Math.sin(performance.now() * 0.006 + e.x) * g.userData.bob;
+    }
+    if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
   // ---------- unidades: soldados y héroes ----------
