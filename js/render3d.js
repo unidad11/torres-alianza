@@ -16,7 +16,7 @@
   const fromWorld = (wx, wz) => ({ x: wx / SCALE + TA.W / 2, y: wz / SCALE + TA.H / 2 });
 
   let renderer, scene, camera, sun, raycaster, groundPlane;
-  let terrainMesh = null, pathGroup = null, currentPaths = [];
+  let terrainMesh = null, pathGroup = null, sceneryGroup = null, spotGroup = null, currentPaths = [];
   const pools = { towers: new Map(), enemies: new Map(), units: new Map(), projectiles: new Map(), effects: new Map() };
 
   // aparta un punto del camino si queda demasiado cerca (solo para dibujar,
@@ -91,8 +91,9 @@
     camera.position.set(0, 60, 46);
     camera.lookAt(0, 0, -4);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambient);
+    sun = new THREE.DirectionalLight(0xffffff, 0.95);
     sun.position.set(28, 48, 18);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -124,51 +125,161 @@
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 }; // fracción 0..1 del lienzo
   };
 
+  // ---------- relieve del terreno ----------
+  // Única fuente de altura del suelo: la usan el terreno, el camino, el
+  // decorado, las torres y las unidades. Si cada uno calculase la suya por su
+  // cuenta acabarían descuadrados (el camino enterrado bajo las dunas, las
+  // torres flotando sobre ellas).
+  // Se precalcula una rejilla por nivel y se interpola: llamar a path.at()
+  // por cada consulta sería carísimo, y las torres consultan cada fotograma.
+  const GX = 96, GZ = 54;        // celdas de la rejilla (10 px de juego cada una)
+  let heightGrid = null;         // (GX+1) x (GZ+1) alturas ya calculadas
+
+  // cuánto ondula cada región: el desierto tiene dunas de verdad, el bosque apenas
+  const REGION_RELIEF = { desierto: 0.9, bosque: 0.35, montana: 0.65 };
+
+  function buildHeightGrid(level, paths) {
+    const amp = REGION_RELIEF[level.region] || 0.35;
+    const rng = TA.mulberry32((level.seed || 1) * 977 + 13);
+    const ph1 = rng() * 6.283, ph2 = rng() * 6.283;
+
+    // el camino se muestrea una sola vez: hay miles de vértices que consultar
+    const pathPts = [];
+    for (const path of paths) {
+      if (path.total < 1) continue;
+      const step = Math.max(6, path.total / 140);
+      for (let s = 0; s <= path.total; s += step) {
+        const p = path.at(s);
+        pathPts.push(p.x, p.y);
+      }
+    }
+    const spots = level.spots || [];
+    const river = level.river;
+
+    // 0 = terreno aplanado, 1 = duna entera. Se aplana bajo el camino (si no,
+    // lo atraviesa), en los huecos de torre (si no, las torres se inclinan)
+    // y en el río.
+    function flatFactor(x, y) {
+      let d = Infinity;
+      for (let i = 0; i < pathPts.length; i += 2) {
+        const dd = Math.hypot(pathPts[i] - x, pathPts[i + 1] - y);
+        if (dd < d) d = dd;
+      }
+      for (const sp of spots) {
+        const dd = Math.hypot(sp[0] - x, sp[1] - y) - 18;
+        if (dd < d) d = dd;
+      }
+      if (river) {
+        const dd = Math.abs(x - river.x) - river.w / 2;
+        if (dd < d) d = dd;
+      }
+      return Math.max(0, Math.min(1, (d - 30) / 70)); // llano hasta 30 px, duna entera a 100
+    }
+
+    heightGrid = new Float32Array((GX + 1) * (GZ + 1));
+    for (let j = 0; j <= GZ; j++) {
+      for (let i = 0; i <= GX; i++) {
+        const x = (i / GX) * TA.W, y = (j / GZ) * TA.H;
+        const h = Math.sin(x * 0.011 + ph1) * 0.55 + Math.sin(y * 0.017 + x * 0.006 + ph2) * 0.4;
+        heightGrid[j * (GX + 1) + i] = h * amp * flatFactor(x, y);
+      }
+    }
+  }
+
+  // altura del suelo (unidades 3D) en coordenadas de juego
+  R3.groundY = function (x, y) {
+    if (!heightGrid) return 0;
+    const fx = Math.max(0, Math.min(GX, (x / TA.W) * GX));
+    const fy = Math.max(0, Math.min(GZ, (y / TA.H) * GZ));
+    const i = Math.min(GX - 1, Math.floor(fx)), j = Math.min(GZ - 1, Math.floor(fy));
+    const tx = fx - i, ty = fy - j;
+    const at = (a, b) => heightGrid[b * (GX + 1) + a];
+    return at(i, j) * (1 - tx) * (1 - ty) + at(i + 1, j) * tx * (1 - ty)
+         + at(i, j + 1) * (1 - tx) * ty + at(i + 1, j + 1) * tx * ty;
+  };
+  const groundY = R3.groundY;
+
+  // ambiente por región. La luz total se mantiene por debajo de ~1.4: por
+  // encima, los tonos claros (arena, nieve) se saturan a blanco y el camino
+  // deja de distinguirse del suelo que tiene al lado.
+  const REGION_LOOK = {
+    desierto: { sky: 0xf0dca0, near: 50, far: 130, sun: 0xfff2d0, sunI: 0.85, amb: 0xfff0d5, ambI: 0.35 },
+    bosque:   { sky: 0x8fc7ec, near: 55, far: 130, sun: 0xffffff, sunI: 0.95, amb: 0xffffff, ambI: 0.50 },
+    montana:  { sky: 0xcfe4f2, near: 45, far: 120, sun: 0xeaf4ff, sunI: 0.80, amb: 0xdce9f5, ambI: 0.42 },
+  };
+  let ambient = null; // se guarda en init para poder ajustarla por región
+
+  function applyRegionLook(region) {
+    const L = REGION_LOOK[region] || REGION_LOOK.bosque;
+    scene.background = new THREE.Color(L.sky);
+    scene.fog = new THREE.Fog(L.sky, L.near, L.far);
+    sun.color.setHex(L.sun); sun.intensity = L.sunI;
+    if (ambient) { ambient.color.setHex(L.amb); ambient.intensity = L.ambI; }
+  }
+
   // ---------- terreno ----------
+  // franja del camino que sigue el relieve. La altura se mide en cada borde,
+  // no en el centro: con la del centro, el lateral queda enterrado allí donde
+  // el terreno sube.
+  function buildRibbon(path, halfW, lift, color) {
+    const steps = Math.max(2, Math.round(path.total / 6));
+    const verts = [], idx = [];
+    for (let i = 0; i <= steps; i++) {
+      const p = path.at((path.total * i) / steps);
+      const lx = p.x + p.nx * halfW, ly = p.y + p.ny * halfW;
+      const rx = p.x - p.nx * halfW, ry = p.y - p.ny * halfW;
+      verts.push(toX(lx), groundY(lx, ly) + lift, toZ(ly));
+      verts.push(toX(rx), groundY(rx, ry) + lift, toZ(ry));
+    }
+    for (let i = 0; i < steps; i++) {
+      const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+      idx.push(a, b, c, b, d, c);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, toonMat(color, { side: THREE.DoubleSide }));
+    m.receiveShadow = true;
+    return m;
+  }
+
   R3.buildTerrain = function (level, paths) {
     if (terrainMesh) { scene.remove(terrainMesh); }
     if (pathGroup) { scene.remove(pathGroup); }
+    if (sceneryGroup) { scene.remove(sceneryGroup); }
+    if (spotGroup) { scene.remove(spotGroup); }
     currentPaths = paths;
+    buildHeightGrid(level, paths);
+    applyRegionLook(level.region);
 
     const REGION_COLOR = { bosque: 0x5a9d42, desierto: 0xd9bc7a, montana: 0xe8f0f5 };
     const color = REGION_COLOR[level.region] || REGION_COLOR.bosque;
-    const geo = new THREE.PlaneGeometry(TA.W * SCALE, TA.H * SCALE, 20, 12);
+    // la rejilla del terreno coincide con la del relieve, así que el suelo y
+    // las consultas de altura dan exactamente el mismo valor en cada vértice
+    const geo = new THREE.PlaneGeometry(TA.W * SCALE, TA.H * SCALE, GX, GZ);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      // el plano se gira -90° en X: el vértice local (x, y) acaba en el mundo
+      // en (x, -y). Sin ese signo se aplanaría el reflejo del camino.
+      const g = fromWorld(pos.getX(i), -pos.getY(i));
+      pos.setZ(i, groundY(g.x, g.y));
+    }
+    geo.computeVertexNormals();
     terrainMesh = new THREE.Mesh(geo, toonMat(color));
     terrainMesh.rotation.x = -Math.PI / 2;
     terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
 
     pathGroup = new THREE.Group();
-    const pathMat = toonMat(0xb0895a, { side: THREE.DoubleSide });
     const halfW = 21; // mitad del ancho del camino, en píxeles de juego
+    const EDGE = { bosque: 0x6b4a2c, desierto: 0x6b5236, montana: 0x8a9aa8 };
     for (const path of paths) {
       if (path.total < 1) continue;
-      const steps = Math.max(2, Math.round(path.total / 6));
-      const left = [], right = [];
-      for (let i = 0; i <= steps; i++) {
-        const s = (path.total * i) / steps;
-        const p = path.at(s);
-        left.push(toX(p.x + p.nx * halfW), 0.03, toZ(p.y + p.ny * halfW));
-        right.push(toX(p.x - p.nx * halfW), 0.03, toZ(p.y - p.ny * halfW));
-      }
-      // franja plana (triangle strip): dos vértices por muestra, alternando lado
-      const verts = [];
-      for (let i = 0; i <= steps; i++) {
-        verts.push(left[i * 3], left[i * 3 + 1], left[i * 3 + 2]);
-        verts.push(right[i * 3], right[i * 3 + 1], right[i * 3 + 2]);
-      }
-      const idx = [];
-      for (let i = 0; i < steps; i++) {
-        const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
-        idx.push(a, b, c, b, d, c);
-      }
-      const ribbonGeo = new THREE.BufferGeometry();
-      ribbonGeo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-      ribbonGeo.setIndex(idx);
-      ribbonGeo.computeVertexNormals();
-      const ribbon = new THREE.Mesh(ribbonGeo, pathMat);
-      ribbon.receiveShadow = true;
-      pathGroup.add(ribbon);
+      // dos franjas: la de abajo asoma por los lados como borde oscuro, que es
+      // lo que separa el camino del suelo cuando ambos tiran a marrón claro
+      pathGroup.add(buildRibbon(path, halfW + 3.5, 0.06, EDGE[level.region] || EDGE.bosque));
+      pathGroup.add(buildRibbon(path, halfW, 0.10, 0xb0895a));
     }
     if (level.river) {
       const rv = level.river;
@@ -179,7 +290,158 @@
       pathGroup.add(river);
     }
     scene.add(pathGroup);
+
+    sceneryGroup = buildScenery(level, paths);
+    scene.add(sceneryGroup);
+
+    spotGroup = buildSpotMarkers(level);
+    scene.add(spotGroup);
   };
+
+  // ---------- huecos de construcción ----------
+  // Plataforma de piedra que marca dónde se puede levantar una torre. Sin
+  // esto no hay manera de saber dónde se construye: el juego 2D las dibujaba
+  // y el paso a 3D se las había dejado por el camino.
+  function makeSpotMarker() {
+    const g = new THREE.Group();
+    const R = 22 * SCALE; // mismo radio que en el juego 2D
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.05, 0.14, 16), toonMat(0xb9a684));
+    base.position.y = 0.07;
+    base.receiveShadow = true;
+    addOutline(base, 0x6b5f45, 1.05);
+    g.add(base);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.82, R * 0.86, 0.07, 16), toonMat(0xcbb894));
+    top.position.y = 0.17;
+    g.add(top);
+    // anillo dorado: solo llama la atención mientras no haya ninguna torre
+    const ring = new THREE.Mesh(
+      // más grueso que la línea de 3 px del 2D: en perspectiva el anillo se ve
+      // de canto y se adelgaza. Con menos de esto desaparece contra la arena.
+      new THREE.TorusGeometry(R * 1.18, 3.6 * SCALE, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0xf5c33b, transparent: true, opacity: 0 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.22;
+    g.add(ring);
+    g.userData.ring = ring;
+    return g;
+  }
+
+  function buildSpotMarkers(level) {
+    const g = new THREE.Group();
+    for (const sp of (level.spots || [])) {
+      const m = makeSpotMarker();
+      m.position.set(toX(sp[0]), groundY(sp[0], sp[1]), toZ(sp[1]));
+      g.add(m);
+    }
+    return g;
+  }
+
+  function updateSpotMarkers(game) {
+    if (!spotGroup) return;
+    // el pulso usa el reloj del juego, no el del navegador, para que se pare
+    // también cuando se pausa la partida
+    const pulse = game.towers.length === 0 ? Math.sin((game.time || 0) * 3) * 0.5 + 0.5 : 0;
+    for (let i = 0; i < spotGroup.children.length; i++) {
+      const spot = game.spots[i], m = spotGroup.children[i];
+      if (!spot) continue;
+      m.visible = !spot.tower;           // ocupado: la torre ocupa su sitio
+      const ring = m.userData.ring;
+      ring.material.opacity = pulse * 0.9;
+      const s = 1 + (1 - pulse) * 0.3;   // se abre al desvanecerse, como el 2D
+      ring.scale.set(s, s, 1);
+    }
+  }
+
+  // ---------- decorado del escenario ----------
+  function makeRock(s) {
+    const geo = new THREE.DodecahedronGeometry(0.6 * s, 0);
+    geo.scale(1, 0.7, 0.85);
+    const m = new THREE.Mesh(geo, toonMat(0x9d8768));
+    m.position.y = 0.35 * s;
+    m.castShadow = true; m.receiveShadow = true;
+    addOutline(m, 0x3d2f1a, 1.06);
+    const g = new THREE.Group();
+    g.add(m);
+    return g;
+  }
+
+  // saguaro: tronco con dos brazos que suben, la silueta que lee como "desierto"
+  function makeCactus(s) {
+    const g = new THREE.Group();
+    const green = 0x5c8f4e, ink = 0x2d4a26;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * s, 0.2 * s, 1.6 * s, 8), toonMat(green));
+    trunk.position.y = 0.8 * s; trunk.castShadow = true; addOutline(trunk, ink);
+    g.add(trunk);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * s, 0.13 * s, 0.7 * s, 6), toonMat(green));
+      arm.position.set(side * 0.28 * s, 0.9 * s, 0);
+      arm.rotation.z = side * 0.5;
+      arm.castShadow = true; addOutline(arm, ink);
+      g.add(arm);
+      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * s, 0.11 * s, 0.5 * s, 6), toonMat(green));
+      up.position.set(side * 0.5 * s, 1.3 * s, 0);
+      up.castShadow = true; addOutline(up, ink);
+      g.add(up);
+    }
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.17 * s, 8, 8), toonMat(green));
+    tip.position.y = 1.6 * s; addOutline(tip, ink);
+    g.add(tip);
+    return g;
+  }
+
+  // ruina: columnas partidas a distinta altura sobre una base de piedra
+  function makeRuina(s) {
+    const g = new THREE.Group();
+    const stone = 0xc4b394, ink = 0x5a4a30;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.5 * s, 0.18 * s, 1.5 * s), toonMat(stone));
+    base.position.y = 0.09 * s; base.receiveShadow = true; addOutline(base, ink, 1.04);
+    g.add(base);
+    const alturas = [1.25, 0.55, 0.9];
+    alturas.forEach((h, i) => {
+      const a = (i / alturas.length) * Math.PI * 2 + 0.4;
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.17 * s, 0.19 * s, h * s, 7), toonMat(stone));
+      col.position.set(Math.cos(a) * 0.5 * s, 0.18 * s + (h * s) / 2, Math.sin(a) * 0.5 * s);
+      col.castShadow = true; addOutline(col, ink);
+      g.add(col);
+    });
+    return g;
+  }
+
+  // Mismas reglas de reparto que el decorado del juego 2D (26 piezas, apartadas
+  // del camino y de los huecos de torre): así cada nivel conserva su propio
+  // reparto, ligado a su semilla, en vez de cambiar en cada partida.
+  function buildScenery(level, paths) {
+    const g = new THREE.Group();
+    if (level.region !== "desierto") return g; // Bosque y Montaña, aún sin diseñar
+    const rng = TA.mulberry32((level.seed || 1) * 1000 + 7);
+    const puestas = [];
+    const libre = (x, y) => {
+      for (const path of paths) {
+        for (let s = 0; s < path.total; s += 14) {
+          const p = path.at(s);
+          if (Math.hypot(p.x - x, p.y - y) < 48) return false;
+        }
+      }
+      for (const sp of (level.spots || [])) if (Math.hypot(sp[0] - x, sp[1] - y) < 42) return false;
+      if (level.river && Math.abs(x - level.river.x) < level.river.w / 2 + 26) return false;
+      for (const d of puestas) if (Math.hypot(d.x - x, d.y - y) < 34) return false;
+      return true;
+    };
+    let tries = 0;
+    while (puestas.length < 26 && tries < 700) {
+      tries++;
+      const x = 20 + rng() * (TA.W - 40), y = 20 + rng() * (TA.H - 40);
+      if (!libre(x, y)) continue;
+      const r = rng(), s = 0.7 + rng() * 0.6;
+      const obj = r < 0.5 ? makeCactus(s) : r < 0.78 ? makeRock(s) : r < 0.93 ? makeRuina(s) : makeRock(s);
+      obj.position.set(toX(x), groundY(x, y), toZ(y));
+      obj.rotation.y = rng() * Math.PI * 2;
+      g.add(obj);
+      puestas.push({ x, y });
+    }
+    return g;
+  }
 
   // ---------- torres ----------
   // cada tipo tiene su propia silueta y gana piezas nuevas (no solo color) al subir de nivel
@@ -478,11 +740,11 @@
     return g;
   }
   function updateTowerMesh(tw, g) {
-    if (g.userData.gx === undefined) {
-      const clear = clearOfPath(tw.x, tw.y, 38); // 21 de medio camino + margen de la base de la torre
-      g.userData.gx = clear.x; g.userData.gy = clear.y;
-    }
-    g.position.set(toX(g.userData.gx), 0, toZ(g.userData.gy));
+    // se dibuja en la posición real del hueco: el motor ya lo aparta del camino
+    // al crear la partida, así que no hace falta corregirlo aquí (antes se movía
+    // solo el dibujo y la torre no cuadraba con su propia plataforma)
+    // apoyada en el suelo: el hueco está aplanado, así que no se inclina
+    g.position.set(toX(tw.x), groundY(tw.x, tw.y), toZ(tw.y));
     if (typeof tw.aimAngle === "number") g.rotation.y = -tw.aimAngle;
     const lv = Math.max(0, Math.min(2, tw.level || 0));
     if (g.userData.builtLevel !== lv) populateTower(g, tw);
@@ -1039,7 +1301,8 @@
     return g;
   }
   function updateEnemyMesh(e, g) {
-    g.position.set(toX(e.x), g.userData.baseHover, toZ(e.y));
+    // los voladores mantienen su altura de vuelo por encima del relieve
+    g.position.set(toX(e.x), groundY(e.x, e.y) + g.userData.baseHover, toZ(e.y));
     if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
     const t = performance.now() * 0.001;
     if (g.userData.fly) {
@@ -1246,7 +1509,7 @@
     return g;
   }
   function updateUnitMesh(u, g) {
-    g.position.set(toX(u.x), 0, toZ(u.y));
+    g.position.set(toX(u.x), groundY(u.x, u.y), toZ(u.y));
     g.visible = !u.dead;
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
@@ -1292,6 +1555,7 @@
 
   // ---------- bucle de dibujado ----------
   R3.render = function (game) {
+    updateSpotMarkers(game);
     syncPool(pools.towers, game.towers, makeTowerMesh, updateTowerMesh);
     syncPool(pools.enemies, game.enemies, makeEnemyMesh, updateEnemyMesh);
     syncPool(pools.units, game.units, makeUnitMesh, updateUnitMesh);

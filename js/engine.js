@@ -56,6 +56,55 @@
     return levelDef.paths.map(buildPath);
   }
 
+  // ---------- huecos de construcción: apartarlos del camino ----------
+  // Los huecos de data.js se situaron a ojo y muchos caen sobre la calzada o
+  // pegados a ella (una torre no puede plantarse en mitad del camino por el
+  // que vienen los enemigos). Aquí se apartan lo justo, en perpendicular,
+  // dejando libre el ancho del camino más la base de la torre.
+  // Se corrige en el motor y no en los datos para que valga igual en los 15
+  // niveles y en los que se añadan después.
+  const PATH_HALF = 21;                        // medio ancho del camino
+  const SPOT_R = 22;                           // radio de la plataforma de la torre
+  const SPOT_CLEAR = PATH_HALF + SPOT_R + 1;   // 44: la plataforma no llega a rozar
+
+  // distancia al camino más cercano, con la normal hacia el lado en el que ya está
+  function nearestPath(x, y, paths) {
+    let d = Infinity, nx = 0, ny = 0;
+    for (const path of paths) {
+      for (const seg of path.segs) {
+        const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
+        const len2 = dx * dx + dy * dy;
+        let t = len2 ? ((x - seg.x1) * dx + (y - seg.y1) * dy) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const cx = seg.x1 + dx * t, cy = seg.y1 + dy * t;
+        const dist = Math.hypot(x - cx, y - cy);
+        if (dist < d) {
+          d = dist;
+          const nlen = Math.hypot(dx, dy) || 1;
+          nx = -dy / nlen; ny = dx / nlen;
+          // empujar hacia el lado donde ya estaba, para no cruzarlo de acera
+          if ((x - cx) * nx + (y - cy) * ny < 0) { nx = -nx; ny = -ny; }
+        }
+      }
+    }
+    return { d, nx, ny };
+  }
+
+  // se repite el empuje porque en una curva, apartarse de un tramo puede
+  // acercarte al siguiente
+  function pushOffPath(x, y, paths) {
+    let px = x, py = y;
+    for (let i = 0; i < 12; i++) {
+      const r = nearestPath(px, py, paths);
+      if (r.d >= SPOT_CLEAR) break;
+      px += r.nx * (SPOT_CLEAR - r.d + 0.5);
+      py += r.ny * (SPOT_CLEAR - r.d + 0.5);
+      px = Math.max(SPOT_R + 4, Math.min(TA.W - SPOT_R - 4, px));   // sin salirse del mapa
+      py = Math.max(SPOT_R + 4, Math.min(TA.H - SPOT_R - 4, py));
+    }
+    return { x: Math.round(px), y: Math.round(py) };
+  }
+
   // ---------- clase principal ----------
   class Game {
     constructor(levelDef, heroTypes, progression) {
@@ -77,7 +126,10 @@
       this.units = [];    // soldados, milicianos y héroes
       this.projectiles = [];
       this.effects = [];
-      this.spots = levelDef.spots.map(([x, y], i) => ({ x, y, i, tower: null }));
+      this.spots = levelDef.spots.map(([x, y], i) => {
+        const p = pushOffPath(x, y, this.paths);
+        return { x: p.x, y: p.y, i, tower: null };
+      });
 
       // oleadas
       this.waveIdx = -1;            // aún no ha empezado ninguna
