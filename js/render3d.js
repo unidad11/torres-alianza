@@ -249,6 +249,7 @@
     if (pathGroup) { scene.remove(pathGroup); }
     if (sceneryGroup) { scene.remove(sceneryGroup); }
     if (spotGroup) { scene.remove(spotGroup); }
+    if (rangeGroup) { scene.remove(rangeGroup); rangeGroup = null; rangeKey = ""; }
     currentPaths = paths;
     buildHeightGrid(level, paths);
     applyRegionLook(level.region);
@@ -351,6 +352,47 @@
       const s = 1 + (1 - pulse) * 0.3;   // se abre al desvanecerse, como el 2D
       ring.scale.set(s, s, 1);
     }
+  }
+
+  // ---------- alcance de la torre o hueco seleccionado ----------
+  // Se dibuja pegado al relieve y no como un disco plano: con radios de 130 px
+  // o más, un disco plano se hunde en las dunas y asoma a trozos.
+  let rangeGroup = null, rangeKey = "";
+
+  function buildRangeRing(cx, cy, rInner, rOuter, color, opacity) {
+    const geo = new THREE.RingGeometry(rInner * SCALE, rOuter * SCALE, 64, 6);
+    geo.rotateX(-Math.PI / 2); // tumbado en el suelo: (x, y) local pasa a (x, -z)
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const gx = cx + pos.getX(i) / SCALE;
+      const gy = cy + pos.getZ(i) / SCALE;
+      pos.setY(i, groundY(gx, gy) + 0.2);
+    }
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity,
+      side: THREE.DoubleSide,
+      depthWrite: false, // si no, el relleno tapa lo que tiene detrás
+    }));
+  }
+
+  function updateRange(selection) {
+    const key = selection && selection.range
+      ? selection.x + "," + selection.y + "," + selection.range : "";
+    if (key === rangeKey) return;
+    rangeKey = key;
+    if (rangeGroup) {
+      scene.remove(rangeGroup);
+      rangeGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      rangeGroup = null;
+    }
+    if (!key) return;
+    const r = selection.range;
+    rangeGroup = new THREE.Group();
+    rangeGroup.add(buildRangeRing(selection.x, selection.y, 0.5, r, 0xffffff, 0.12)); // relleno
+    rangeGroup.add(buildRangeRing(selection.x, selection.y, r * 0.955, r, 0xffffff, 0.55)); // borde
+    rangeGroup.position.set(toX(selection.x), 0, toZ(selection.y));
+    scene.add(rangeGroup);
   }
 
   // ---------- decorado del escenario ----------
@@ -1554,8 +1596,9 @@
   }
 
   // ---------- bucle de dibujado ----------
-  R3.render = function (game) {
+  R3.render = function (game, selection) {
     updateSpotMarkers(game);
+    updateRange(selection);
     syncPool(pools.towers, game.towers, makeTowerMesh, updateTowerMesh);
     syncPool(pools.enemies, game.enemies, makeEnemyMesh, updateEnemyMesh);
     syncPool(pools.units, game.units, makeUnitMesh, updateUnitMesh);

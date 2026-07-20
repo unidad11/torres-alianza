@@ -640,7 +640,7 @@
 
   UI.frame = function () {
     if (game && document.getElementById("scr-game").classList.contains("visible")) {
-      TA.render3d.render(game);
+      TA.render3d.render(game, selection);
       updateHud();
     }
   };
