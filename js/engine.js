@@ -63,9 +63,14 @@
   // dejando libre el ancho del camino más la base de la torre.
   // Se corrige en el motor y no en los datos para que valga igual en los 15
   // niveles y en los que se añadan después.
-  const PATH_HALF = 21;                        // medio ancho del camino
-  const SPOT_R = 22;                           // radio de la plataforma de la torre
-  const SPOT_CLEAR = PATH_HALF + SPOT_R + 1;   // 44: la plataforma no llega a rozar
+  const PATH_HALF = 21;   // medio ancho del camino
+  const SPOT_R = 22;      // radio de la plataforma de la torre
+  // 62 deja 41 px libres desde el centro del hueco hasta el borde de la calzada,
+  // que es lo que ocupa la base de la torre mas ancha (el cañon a nivel 3, ~34)
+  // con margen. Con 44 (lo justo para que la plataforma no se solapara) la torre
+  // quedaba a 1 px del borde: sobre el papel no se tocaban, en pantalla parecia
+  // estar en el camino.
+  const SPOT_CLEAR = 62;
 
   // distancia al camino más cercano, con la normal hacia el lado en el que ya está
   function nearestPath(x, y, paths) {
@@ -102,7 +107,36 @@
       px = Math.max(SPOT_R + 4, Math.min(TA.W - SPOT_R - 4, px));   // sin salirse del mapa
       py = Math.max(SPOT_R + 4, Math.min(TA.H - SPOT_R - 4, py));
     }
-    return { x: Math.round(px), y: Math.round(py) };
+    return { x: px, y: py };
+  }
+
+  // Apartar del camino puede dejar dos plataformas una encima de otra. Se
+  // separan y se vuelve a apartar del camino, porque separarlas puede haberlas
+  // devuelto a la calzada. Un par de vueltas basta.
+  function layoutSpots(spots, paths) {
+    const apartar = () => spots.forEach((sp) => {
+      const p = pushOffPath(sp.x, sp.y, paths);
+      sp.x = p.x; sp.y = p.y;
+    });
+    apartar();
+    const minSep = SPOT_R * 2 + 4;
+    for (let vuelta = 0; vuelta < 8; vuelta++) {
+      let tocado = false;
+      for (let a = 0; a < spots.length; a++) {
+        for (let b = a + 1; b < spots.length; b++) {
+          const dx = spots[b].x - spots[a].x, dy = spots[b].y - spots[a].y;
+          const d = Math.hypot(dx, dy) || 0.01;
+          if (d >= minSep) continue;
+          const k = (minSep - d) / 2 / d;   // se reparte el empuje entre las dos
+          spots[a].x -= dx * k; spots[a].y -= dy * k;
+          spots[b].x += dx * k; spots[b].y += dy * k;
+          tocado = true;
+        }
+      }
+      if (!tocado) break;
+      apartar();
+    }
+    spots.forEach((sp) => { sp.x = Math.round(sp.x); sp.y = Math.round(sp.y); });
   }
 
   // ---------- clase principal ----------
@@ -126,10 +160,8 @@
       this.units = [];    // soldados, milicianos y héroes
       this.projectiles = [];
       this.effects = [];
-      this.spots = levelDef.spots.map(([x, y], i) => {
-        const p = pushOffPath(x, y, this.paths);
-        return { x: p.x, y: p.y, i, tower: null };
-      });
+      this.spots = levelDef.spots.map(([x, y], i) => ({ x, y, i, tower: null }));
+      layoutSpots(this.spots, this.paths);
 
       // oleadas
       this.waveIdx = -1;            // aún no ha empezado ninguna

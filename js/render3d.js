@@ -488,7 +488,13 @@
   // ---------- torres ----------
   // cada tipo tiene su propia silueta y gana piezas nuevas (no solo color) al subir de nivel
   const TOWER_FIT = 0.45; // el radio original quedaba más ancho que el camino
-  const LEVEL_SCALE = [1, 1.4, 1.85]; // salto de tamaño claro entre niveles
+  const LEVEL_SCALE = [1, 1.4, 1.85]; // salto de tamaño claro entre niveles, en altura
+  // A lo ancho se crece mucho menos: si la base creciera igual que la altura,
+  // acabaria invadiendo el camino (el cañon llegaba a 48 px de radio de base).
+  // El salto de nivel se lee igual de bien porque la altura casi se dobla.
+  // El limite es la separacion al camino: la base mas ancha (el cañon, ~34 px
+  // aqui) tiene que caber en SPOT_CLEAR - 21 del motor.
+  const WIDTH_SCALE = [1, 1.18, 1.32];
 
   function disposeChildren(g) {
     while (g.children.length) {
@@ -772,7 +778,7 @@
     const lv = Math.max(0, Math.min(2, tw.level || 0));
     const build = TOWER_BUILDERS[tw.type] || TOWER_BUILDERS.arqueros;
     build(g, lv);
-    g.scale.setScalar(TOWER_FIT * LEVEL_SCALE[lv]);
+    g.scale.set(TOWER_FIT * WIDTH_SCALE[lv], TOWER_FIT * LEVEL_SCALE[lv], TOWER_FIT * WIDTH_SCALE[lv]);
     g.userData.builtLevel = lv;
   }
 
