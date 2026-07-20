@@ -238,7 +238,7 @@
     game = new TA.Game(levelDef, heroTypes || ["roldan", "lyra"], progression);
     TA.currentGame = game;
     terrain = TA.buildTerrain(levelDef, game.paths);
-    TA.render3d.buildTerrain(levelDef, game.paths);
+    TA.render3d.buildTerrain(levelDef, game.paths, game.spots);
     selection = null; targeting = null; rallyTower = null;
     game.onEvent = onGameEvent;
     $("hud-level-name").textContent = levelDef.id + ". " + levelDef.name;

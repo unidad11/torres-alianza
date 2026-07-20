@@ -138,7 +138,11 @@
   // cuánto ondula cada región: el desierto tiene dunas de verdad, el bosque apenas
   const REGION_RELIEF = { desierto: 0.9, bosque: 0.35, montana: 0.65 };
 
-  function buildHeightGrid(level, paths) {
+  // OJO: "spots" son los huecos ya corregidos por el motor (game.spots), no los
+  // de data.js. El motor los aparta del camino al crear la partida, asi que usar
+  // los del fichero dejaria el terreno aplanado y las plataformas dibujadas en
+  // el sitio antiguo, a decenas de pixeles de donde se construye de verdad.
+  function buildHeightGrid(level, paths, spots) {
     const amp = REGION_RELIEF[level.region] || 0.35;
     const rng = TA.mulberry32((level.seed || 1) * 977 + 13);
     const ph1 = rng() * 6.283, ph2 = rng() * 6.283;
@@ -153,7 +157,6 @@
         pathPts.push(p.x, p.y);
       }
     }
-    const spots = level.spots || [];
     const river = level.river;
 
     // 0 = terreno aplanado, 1 = duna entera. Se aplana bajo el camino (si no,
@@ -166,7 +169,7 @@
         if (dd < d) d = dd;
       }
       for (const sp of spots) {
-        const dd = Math.hypot(sp[0] - x, sp[1] - y) - 18;
+        const dd = Math.hypot(sp.x - x, sp.y - y) - 18;
         if (dd < d) d = dd;
       }
       if (river) {
@@ -205,7 +208,7 @@
   const REGION_LOOK = {
     desierto: { sky: 0xf0dca0, near: 50, far: 130, sun: 0xfff2d0, sunI: 0.85, amb: 0xfff0d5, ambI: 0.35 },
     bosque:   { sky: 0x8fc7ec, near: 55, far: 130, sun: 0xffffff, sunI: 0.95, amb: 0xffffff, ambI: 0.50 },
-    montana:  { sky: 0xcfe4f2, near: 45, far: 120, sun: 0xeaf4ff, sunI: 0.80, amb: 0xdce9f5, ambI: 0.42 },
+    montana:  { sky: 0xcfe4f2, near: 45, far: 120, sun: 0xeaf4ff, sunI: 0.72, amb: 0xdce9f5, ambI: 0.38 },
   };
   let ambient = null; // se guarda en init para poder ajustarla por región
 
@@ -244,17 +247,20 @@
     return m;
   }
 
-  R3.buildTerrain = function (level, paths) {
+  R3.buildTerrain = function (level, paths, spots) {
     if (terrainMesh) { scene.remove(terrainMesh); }
     if (pathGroup) { scene.remove(pathGroup); }
     if (sceneryGroup) { scene.remove(sceneryGroup); }
     if (spotGroup) { scene.remove(spotGroup); }
     if (rangeGroup) { scene.remove(rangeGroup); rangeGroup = null; rangeKey = ""; }
     currentPaths = paths;
-    buildHeightGrid(level, paths);
+    spots = spots || [];
+    buildHeightGrid(level, paths, spots);
     applyRegionLook(level.region);
 
-    const REGION_COLOR = { bosque: 0x5a9d42, desierto: 0xd9bc7a, montana: 0xe8f0f5 };
+    // la nieve no puede ser casi blanca: con la luz de la escena se saturaba a
+    // 255,255,255 y el relieve desaparecia. 0xc4d4e2 con luz 1.10 da 216,233,249
+    const REGION_COLOR = { bosque: 0x5a9d42, desierto: 0xd9bc7a, montana: 0xc4d4e2 };
     const color = REGION_COLOR[level.region] || REGION_COLOR.bosque;
     // la rejilla del terreno coincide con la del relieve, así que el suelo y
     // las consultas de altura dan exactamente el mismo valor en cada vértice
@@ -292,10 +298,10 @@
     }
     scene.add(pathGroup);
 
-    sceneryGroup = buildScenery(level, paths);
+    sceneryGroup = buildScenery(level, paths, spots);
     scene.add(sceneryGroup);
 
-    spotGroup = buildSpotMarkers(level);
+    spotGroup = buildSpotMarkers(spots);
     scene.add(spotGroup);
   };
 
@@ -328,11 +334,11 @@
     return g;
   }
 
-  function buildSpotMarkers(level) {
+  function buildSpotMarkers(spots) {
     const g = new THREE.Group();
-    for (const sp of (level.spots || [])) {
+    for (const sp of spots) {
       const m = makeSpotMarker();
-      m.position.set(toX(sp[0]), groundY(sp[0], sp[1]), toZ(sp[1]));
+      m.position.set(toX(sp.x), groundY(sp.x, sp.y), toZ(sp.y));
       g.add(m);
     }
     return g;
@@ -396,15 +402,83 @@
   }
 
   // ---------- decorado del escenario ----------
-  function makeRock(s) {
+  // la piedra cambia de tono por region: arenisca, gris de bosque, gris azulado
+  const ROCK_COLOR = { desierto: 0x9d8768, bosque: 0x8a8a80, montana: 0x9aa4ae };
+
+  function makeRock(s, color) {
     const geo = new THREE.DodecahedronGeometry(0.6 * s, 0);
     geo.scale(1, 0.7, 0.85);
-    const m = new THREE.Mesh(geo, toonMat(0x9d8768));
+    const m = new THREE.Mesh(geo, toonMat(color || ROCK_COLOR.desierto));
     m.position.y = 0.35 * s;
     m.castShadow = true; m.receiveShadow = true;
     addOutline(m, 0x3d2f1a, 1.06);
     const g = new THREE.Group();
     g.add(m);
+    return g;
+  }
+
+  // ---------- Bosque ----------
+  // arbol de copa en capas: tres conos que se van estrechando
+  function makeTree(s, oscuro) {
+    const g = new THREE.Group();
+    // verdes mas oscuros que la hierba (0x5a9d42): con tonos parecidos, el arbol
+    // se fundia con el suelo y el bosque se veia vacio
+    const hoja = oscuro ? 0x1f5a2b : 0x2e7d3a, ink = 0x143d1c;
+    s *= 1.7; // un arbol tiene que destacar sobre el terreno, no ser un arbusto
+    const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * s, 0.22 * s, 1.1 * s, 7), toonMat(0x6b4728));
+    tronco.position.y = 0.55 * s; tronco.castShadow = true; addOutline(tronco, 0x40291a);
+    g.add(tronco);
+    const capas = [[1.15, 0.95], [1.75, 0.72], [2.25, 0.48]];
+    for (const [alto, radio] of capas) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(radio * s, 1.0 * s, 8), toonMat(hoja));
+      c.position.y = alto * s; c.castShadow = true; addOutline(c, ink, 1.05);
+      g.add(c);
+    }
+    return g;
+  }
+
+  function makeBush(s) {
+    const g = new THREE.Group();
+    const verde = 0x4a8f45;
+    for (const [dx, dy, r] of [[0, 0.3, 0.42], [0.32, 0.22, 0.3], [-0.3, 0.24, 0.32]]) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(r * s, 7, 6), toonMat(verde));
+      b.position.set(dx * s, dy * s, 0);
+      b.castShadow = true; addOutline(b, 0x244a22, 1.06);
+      g.add(b);
+    }
+    return g;
+  }
+
+  function makeFlowers(s, rng) {
+    const g = new THREE.Group();
+    const tonos = [0xe8d24a, 0xe07a9a, 0xd9634a];
+    for (let i = 0; i < 4; i++) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.11 * s, 6, 5), toonMat(tonos[i % tonos.length]));
+      p.position.set((rng() - 0.5) * 0.9 * s, 0.13 * s, (rng() - 0.5) * 0.9 * s);
+      g.add(p);
+    }
+    return g;
+  }
+
+  // ---------- Montaña ----------
+  // pino nevado: conos verdes muy oscuros con la nieve posada encima
+  function makePineSnow(s) {
+    const g = new THREE.Group();
+    const verde = 0x2b5340, ink = 0x16301f;
+    s *= 1.6; // igual que los arboles del bosque: si no, se pierden en la nieve
+    const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * s, 0.18 * s, 0.8 * s, 6), toonMat(0x5e4430));
+    tronco.position.y = 0.4 * s; tronco.castShadow = true; addOutline(tronco, 0x33241a);
+    g.add(tronco);
+    const capas = [[0.95, 0.8], [1.5, 0.62], [1.95, 0.42]];
+    for (const [alto, radio] of capas) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(radio * s, 0.95 * s, 8), toonMat(verde));
+      c.position.y = alto * s; c.castShadow = true; addOutline(c, ink, 1.05);
+      g.add(c);
+      // capa de nieve: un cono mas plano justo encima de cada rama
+      const nieve = new THREE.Mesh(new THREE.ConeGeometry(radio * 0.72 * s, 0.3 * s, 8), toonMat(0xdce9f2));
+      nieve.position.y = (alto + 0.3) * s;
+      g.add(nieve);
+    }
     return g;
   }
 
@@ -453,9 +527,10 @@
   // Mismas reglas de reparto que el decorado del juego 2D (26 piezas, apartadas
   // del camino y de los huecos de torre): así cada nivel conserva su propio
   // reparto, ligado a su semilla, en vez de cambiar en cada partida.
-  function buildScenery(level, paths) {
+  function buildScenery(level, paths, spots) {
     const g = new THREE.Group();
-    if (level.region !== "desierto") return g; // Bosque y Montaña, aún sin diseñar
+    const region = level.region || "bosque"; // los niveles del Bosque no traen campo region
+    const rock = ROCK_COLOR[region] || ROCK_COLOR.bosque;
     const rng = TA.mulberry32((level.seed || 1) * 1000 + 7);
     const puestas = [];
     const libre = (x, y) => {
@@ -465,18 +540,27 @@
           if (Math.hypot(p.x - x, p.y - y) < 48) return false;
         }
       }
-      for (const sp of (level.spots || [])) if (Math.hypot(sp[0] - x, sp[1] - y) < 42) return false;
+      for (const sp of spots) if (Math.hypot(sp.x - x, sp.y - y) < 42) return false;
       if (level.river && Math.abs(x - level.river.x) < level.river.w / 2 + 26) return false;
       for (const d of puestas) if (Math.hypot(d.x - x, d.y - y) < 34) return false;
       return true;
+    };
+    // mismo reparto de tipos que el decorado del juego 2D
+    const elegir = (r, s) => {
+      if (region === "montana") return r < 0.55 ? makePineSnow(s) : makeRock(s, rock);
+      if (region === "desierto") {
+        return r < 0.5 ? makeCactus(s) : r < 0.78 ? makeRock(s, rock)
+             : r < 0.93 ? makeRuina(s) : makeRock(s, rock);
+      }
+      return r < 0.55 ? makeTree(s, rng() < 0.5) : r < 0.75 ? makeRock(s, rock)
+           : r < 0.9 ? makeBush(s) : makeFlowers(s, rng);
     };
     let tries = 0;
     while (puestas.length < 26 && tries < 700) {
       tries++;
       const x = 20 + rng() * (TA.W - 40), y = 20 + rng() * (TA.H - 40);
       if (!libre(x, y)) continue;
-      const r = rng(), s = 0.7 + rng() * 0.6;
-      const obj = r < 0.5 ? makeCactus(s) : r < 0.78 ? makeRock(s) : r < 0.93 ? makeRuina(s) : makeRock(s);
+      const obj = elegir(rng(), 0.7 + rng() * 0.6);
       obj.position.set(toX(x), groundY(x, y), toZ(y));
       obj.rotation.y = rng() * Math.PI * 2;
       g.add(obj);
