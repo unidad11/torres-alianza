@@ -1659,12 +1659,55 @@
   }
 
   // ---------- proyectiles ----------
+  // Cada tipo de disparo tiene su forma: antes todos eran la misma bolita.
   function makeProjMesh(p) {
-    const color = p.type === "mag" || p.type === "rayo" ? 0x8fd4ff : 0xe8dca0;
-    const m = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color }));
-    return m;
+    if (p.kind === "flecha") {
+      const g = new THREE.Group();
+      const asta = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 5), toonMat(0x8a6a48));
+      asta.rotation.z = Math.PI / 2;              // tumbada, apuntando a +X
+      g.add(asta);
+      const punta = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.28, 5), toonMat(0xd8d2c0));
+      punta.rotation.z = -Math.PI / 2;
+      punta.position.x = 0.55;
+      g.add(punta);
+      return g;
+    }
+    if (p.kind === "bomba") {
+      return new THREE.Mesh(new THREE.SphereGeometry(0.3, 7, 6), toonMat(0x3a3630));
+    }
+    if (p.kind === "hielo") {
+      return new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), toonMat(0xa8e0f5));
+    }
+    if (p.kind === "meteoro") {
+      return new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 7), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
+    }
+    // rayo y demás: bolita luminosa, que no depende de la luz de la escena
+    return new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color: 0x8fd4ff }));
   }
-  function updateProjMesh(p, m) { m.position.set(toX(p.x), 0.9, toZ(p.y)); }
+
+  function updateProjMesh(p, m) {
+    let gx = p.x, gz = p.y, h = 0.9;
+    if (p.kind === "bomba" && typeof p.groundY === "number") {
+      // el motor simula la parábola restándosela a la Y de pantalla y guarda
+      // aparte la posición real del suelo. En 3D eso pasa a ser altura de
+      // verdad, y la bomba sube en vez de desplazarse hacia el norte.
+      gz = p.groundY;
+      h = 0.6 + (p.groundY - p.y) * SCALE;
+    } else if (p.kind === "meteoro") {
+      // cuanto más lejos queda del impacto, más alto va: así cae en picado
+      h = 0.6 + Math.hypot(p.tx - p.x, p.ty - p.y) * SCALE * 0.8;
+    }
+    m.position.set(toX(gx), groundY(gx, gz) + h, toZ(gz));
+
+    // la flecha mira hacia donde viaja
+    if (p.kind === "flecha") {
+      const prev = m.userData.prev;
+      if (prev && (prev.x !== gx || prev.z !== gz)) {
+        m.rotation.y = Math.atan2(-(gz - prev.z), gx - prev.x);
+      }
+      m.userData.prev = { x: gx, z: gz };
+    }
+  }
 
   // ---------- efectos (partículas simples) ----------
   function makeEffectMesh(fx) {
