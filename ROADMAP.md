@@ -62,7 +62,35 @@ Arte propio dibujado por código (sin copiar gráficos de Ironhide).
   parallax lento en la pantalla de título.
 - Techo real de esta técnica: sigue siendo un estilo vectorial dibujado por código (sin imágenes
   ni 3D). Para un salto mayor (iluminación dinámica, brillos, muchas más partículas) habría que
-  pasar el renderizado de Canvas 2D a WebGL — pendiente de decidir si se aborda.
+  pasar el renderizado de Canvas 2D a WebGL — se aborda en la fase siguiente.
+
+## 🚧 Migración a 3D (en curso, rama `migracion-3d`)
+
+Reemplaza el render de Canvas 2D por Three.js con estilo cartoon (sombreado plano + contorno).
+**No está publicado**: `main` sigue sirviendo el juego 2D en GitHub Pages. Se fusionará cuando el
+3D esté al nivel visual del 2D.
+
+Hecho:
+- Motor de render 3D (`js/render3d.js`), las 7 torres con sus 3 niveles, los 15 enemigos y los
+  6 héroes modelados.
+- Terreno con relieve por región y camino con borde que lo sigue. Todo (terreno, camino, decorado,
+  torres, unidades) consulta la misma función de altura, `R3.groundY`, para que no se descuadren.
+- Decorado de las tres regiones, con el mismo reparto procedural que el juego 2D.
+- Huecos de construcción, círculo de alcance y banderín de reunión, que el port se había dejado.
+- Los huecos se apartan del camino en el motor (`layoutSpots`), no en los datos, así que vale
+  también para niveles nuevos. Las torres crecen en altura y poco a lo ancho, para no invadirlo.
+
+Pendiente:
+- Efectos de impacto y explosión (siguen siendo un donut que crece).
+- Tocar una torre alta es impreciso: el toque se resuelve contra un plano a ras de suelo, así que
+  hay que apuntar a su base. Probar en móvil antes de decidir si se arregla.
+- Repasar el equilibrio: mover los huecos cambia un poco qué cubre cada torre.
+
+Notas de trabajo:
+- Al cambiar cualquier fichero del juego hay que **subir `CACHE` en `sw.js`**. Si no, a quien lo
+  tenga instalado le sigue llegando la versión vieja desde su caché.
+- El navegador se queda con el JavaScript cacheado y no revalida. Para probar cambios, medir con
+  Node o añadir `?v=N` a los `<script>` de `index.html` temporalmente.
 
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.
