@@ -19,31 +19,6 @@
   let terrainMesh = null, pathGroup = null, sceneryGroup = null, spotGroup = null, currentPaths = [];
   const pools = { towers: new Map(), enemies: new Map(), units: new Map(), projectiles: new Map(), effects: new Map() };
 
-  // aparta un punto del camino si queda demasiado cerca (solo para dibujar,
-  // no cambia tw.x/tw.y que usa el motor para rango y selección)
-  function clearOfPath(x, y, minClear) {
-    let best = Infinity, nx = 0, ny = 0;
-    for (const path of currentPaths) {
-      for (const seg of path.segs) {
-        const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
-        const len2 = dx * dx + dy * dy;
-        let t = len2 ? ((x - seg.x1) * dx + (y - seg.y1) * dy) / len2 : 0;
-        t = Math.max(0, Math.min(1, t));
-        const cx = seg.x1 + dx * t, cy = seg.y1 + dy * t;
-        const d = Math.hypot(x - cx, y - cy);
-        if (d < best) {
-          best = d;
-          const nlen = Math.hypot(dx, dy) || 1;
-          nx = -dy / nlen; ny = dx / nlen;
-          if ((x - cx) * nx + (y - cy) * ny < 0) { nx = -nx; ny = -ny; }
-        }
-      }
-    }
-    if (best >= minClear || best === Infinity) return { x, y };
-    const push = minClear - best;
-    return { x: x + nx * push, y: y + ny * push };
-  }
-
   // ---------- utilidades de material/geometría "cartoon" ----------
   function toonMat(color, extra) {
     return new THREE.MeshToonMaterial(Object.assign({ color }, extra || {}));
@@ -253,6 +228,7 @@
     if (sceneryGroup) { scene.remove(sceneryGroup); }
     if (spotGroup) { scene.remove(spotGroup); }
     if (rangeGroup) { scene.remove(rangeGroup); rangeGroup = null; rangeKey = ""; }
+    if (rallyGroup) { scene.remove(rallyGroup); rallyGroup = null; rallyKey = ""; }
     currentPaths = paths;
     spots = spots || [];
     buildHeightGrid(level, paths, spots);
@@ -399,6 +375,42 @@
     rangeGroup.add(buildRangeRing(selection.x, selection.y, r * 0.955, r, 0xffffff, 0.55)); // borde
     rangeGroup.position.set(toX(selection.x), 0, toZ(selection.y));
     scene.add(rangeGroup);
+  }
+
+  // ---------- banderín del punto de reunión del cuartel ----------
+  // Marca dónde se plantan los soldados. Sin él no hay forma de saber a dónde
+  // los has mandado; el juego 2D lo dibujaba y el paso a 3D se lo dejó.
+  let rallyGroup = null, rallyKey = "";
+
+  function makeRallyFlag() {
+    const g = new THREE.Group();
+    // mas grande que los 22 px del 2D: visto desde la camara cenital y en
+    // perspectiva, un mastil fino de esa altura casi no se distingue
+    const mastil = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 3.6, 6), toonMat(0x6b4a26));
+    mastil.position.y = 1.8;
+    mastil.castShadow = true;
+    addOutline(mastil, 0x3a2814);
+    g.add(mastil);
+    // banderola triangular, como la del 2D
+    const forma = new THREE.Shape();
+    forma.moveTo(0, 0); forma.lineTo(2.3, -0.7); forma.lineTo(0, -1.4); forma.lineTo(0, 0);
+    const tela = new THREE.Mesh(new THREE.ShapeGeometry(forma),
+      toonMat(0xd43d2a, { side: THREE.DoubleSide }));
+    tela.position.set(0.08, 3.5, 0);
+    g.add(tela);
+    return g;
+  }
+
+  function updateRally(selection) {
+    const r = selection && selection.rally;
+    const key = r ? Math.round(r.x) + "," + Math.round(r.y) : "";
+    if (key === rallyKey) return;
+    rallyKey = key;
+    if (rallyGroup) { scene.remove(rallyGroup); rallyGroup = null; }
+    if (!key) return;
+    rallyGroup = makeRallyFlag();
+    rallyGroup.position.set(toX(r.x), groundY(r.x, r.y), toZ(r.y));
+    scene.add(rallyGroup);
   }
 
   // ---------- decorado del escenario ----------
@@ -1689,6 +1701,7 @@
   R3.render = function (game, selection) {
     updateSpotMarkers(game);
     updateRange(selection);
+    updateRally(selection);
     syncPool(pools.towers, game.towers, makeTowerMesh, updateTowerMesh);
     syncPool(pools.enemies, game.enemies, makeEnemyMesh, updateEnemyMesh);
     syncPool(pools.units, game.units, makeUnitMesh, updateUnitMesh);
