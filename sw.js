@@ -1,8 +1,13 @@
 /* Service worker: guarda el juego en caché para jugar sin conexión */
 "use strict";
-// OJO: subir este número cada vez que cambie cualquier fichero de FILES.
-// Si no, a quien tenga el juego instalado le sigue llegando la versión vieja
-// desde su caché, por muchos cambios que se publiquen.
+// OJO: al cambiar cualquier fichero de FILES hay que subir este número Y el
+// "?v=" de los <script> y el <link> de index.html, y dejar los dos iguales.
+//
+// Son dos cachés distintas y hacen falta las dos:
+//  - este número controla la caché del service worker (el juego instalado).
+//  - el "?v=" de index.html cambia la URL de cada fichero, que es lo único que
+//    obliga al navegador a soltar su copia. Sin él, el navegador sirve el
+//    JavaScript viejo indefinidamente y no ves tus propios cambios.
 const CACHE = "torres-alianza-v17";
 const FILES = [
   ".", "index.html", "manifest.json",
