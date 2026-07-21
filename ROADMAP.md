@@ -85,10 +85,20 @@ Hecho:
 
 - Puente de madera sobre el río, viñeta de los bordes y reloj de reaparición del héroe caído.
 
-Pendiente:
-- Tocar una torre alta es impreciso: el toque se resuelve contra un plano a ras de suelo, así que
-  hay que apuntar a su base. Es lo único que queda de la lista y necesita probarse con el dedo en
-  el móvil, no con clics simulados.
+- Encuadre de cámara que se adapta a la pantalla (en móvil gana un 36% de tamaño).
+
+Probado en iPhone: tocar las torres altas funciona bien, no hace falta arreglarlo.
+
+Pendiente — **decisión abierta: el juego se ve lejano**:
+En 2D se distinguían las caras de los héroes; en 3D no. Los modelos son casi del mismo tamaño
+(héroe 32 px contra 40 en 2D), así que el problema es la proyección: con la cámara a 50° sobre el
+horizonte todo lo vertical se acorta, y el ancho del campo ya ocupa el 96% de la pantalla, así que
+no se puede acercar más sin recortar. Medido que mover el ángulo empeora en ambos sentidos.
+Quedan dos salidas, sin decidir:
+  1. Agrandar héroes y enemigos un 30-40%. Rápido y reversible, pero quedan grandes respecto al
+     camino y las torres.
+  2. Zoom con dos dedos, como Kingdom Rush en móvil. Más trabajo, no sacrifica nada.
+
 - Jugarlo de verdad unos niveles antes de fusionar a `main`.
 
 Equilibrio: comprobado con `node tools/simular-equilibrio.js`, que juega los 15 niveles en seco y
