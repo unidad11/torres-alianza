@@ -77,6 +77,41 @@
     return g;
   }
 
+  // ---------- reloj de reaparición del héroe muerto ----------
+  // Mancha en el suelo con la cuenta atrás encima, como en el 2D. Sin esto no
+  // se sabe si un héroe ha caído ni cuánto falta para que vuelva.
+  function makeRespawnMark() {
+    const g = new THREE.Group();
+    // grande a proposito: con 1.2 de radio la marca se perdia en el suelo
+    const geo = new THREE.CircleGeometry(1.7, 18);
+    geo.rotateX(-Math.PI / 2);
+    const mancha = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: 0x281909, transparent: true, opacity: 0.5, depthWrite: false }));
+    // por encima del camino (que va a 0.14-0.17): los heroes mueren casi
+    // siempre sobre la calzada y esta les tapaba la marca
+    mancha.position.y = 0.24;
+    g.add(mancha);
+    g.userData.texto = null;   // se crea al mostrar el primer numero
+    g.visible = false;
+    return g;
+  }
+
+  function updateRespawnMark(g, segundos) {
+    const n = Math.max(0, Math.ceil(segundos));
+    if (g.userData.n === n) return;      // solo se rehace al cambiar de segundo
+    g.userData.n = n;
+    if (g.userData.texto) {
+      g.remove(g.userData.texto);
+      if (g.userData.texto.material.map) g.userData.texto.material.map.dispose();
+      g.userData.texto.material.dispose();
+    }
+    const spr = makeTextSprite(String(n), "#ffffff");
+    spr.scale.set(2.6, 1.3, 1);   // el tamaño por defecto no se leia
+    spr.position.y = 1.6;
+    g.add(spr);
+    g.userData.texto = spr;
+  }
+
   function makeTextSprite(text, color) {
     const cv = document.createElement("canvas");
     cv.width = 128; cv.height = 64;
@@ -1809,7 +1844,13 @@
     if (isHero) {
       const builder = HERO_BUILDERS[u.type];
       // el heroe la lleva mas ancha, como en 2D (24 px frente a 18)
-      if (builder) return attachHpBar(builder(1.15), 24 * SCALE);
+      if (builder) {
+        const g = attachHpBar(builder(1.15), 24 * SCALE);
+        const marca = makeRespawnMark();
+        g.add(marca);
+        g.userData.respawn = marca;
+        return g;
+      }
     }
     const g = new THREE.Group();
     const color = 0x6f7a8f;
@@ -1826,8 +1867,16 @@
   }
   function updateUnitMesh(u, g) {
     g.position.set(toX(u.x), groundY(u.x, u.y), toZ(u.y));
-    g.visible = !u.dead;
-    if (g.userData.hpBar) updateHpBar(g.userData.hpBar, u.hp / (u.maxHp || u.hp || 1));
+    const marca = g.userData.respawn;
+    if (!marca) {
+      g.visible = !u.dead;   // soldados: mueren y desaparecen, sin mas
+    } else {
+      // heroe: el cuerpo se va, pero queda la marca con la cuenta atras
+      g.visible = true;
+      for (const c of g.children) c.visible = (c === marca) ? !!u.dead : !u.dead;
+      if (u.dead) updateRespawnMark(marca, u.respawnT || 0);
+    }
+    if (!u.dead && g.userData.hpBar) updateHpBar(g.userData.hpBar, u.hp / (u.maxHp || u.hp || 1));
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
