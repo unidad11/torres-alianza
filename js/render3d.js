@@ -34,6 +34,48 @@
     return new THREE.Color().setHSL((h % 360) / 360, sat || 0.4, light || 0.5).getHex();
   }
   // pequeño lienzo con texto para números de daño / oro flotantes
+  // ---------- barras de vida ----------
+  // Van como sprites porque siempre miran a la cámara, y sin prueba de
+  // profundidad para que no las tape el propio cuerpo del enemigo.
+  // Mismos colores y umbrales que el juego 2D.
+  function makeHpBar(width) {
+    const g = new THREE.Group();
+    const fondo = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x201a14, depthTest: false }));
+    fondo.scale.set(width + 0.16, width * 0.36, 1);
+    fondo.renderOrder = 998;
+    g.add(fondo);
+    const relleno = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x5ec24a, depthTest: false }));
+    relleno.scale.set(width, width * 0.24, 1);
+    relleno.renderOrder = 999;
+    g.add(relleno);
+    g.userData.width = width;
+    g.userData.relleno = relleno;
+    g.visible = false;   // solo se ve cuando el bicho está herido
+    return g;
+  }
+
+  function updateHpBar(g, pct) {
+    const p = Math.max(0, Math.min(1, pct));
+    g.visible = p < 0.999;
+    if (!g.visible) return;
+    const w = g.userData.width, relleno = g.userData.relleno;
+    relleno.scale.x = w * p;
+    relleno.scale.y = w * 0.24;
+    relleno.position.x = -(w - w * p) / 2;  // se vacía por la derecha, como en 2D
+    relleno.material.color.setHex(p > 0.5 ? 0x5ec24a : p > 0.25 ? 0xe8b33b : 0xd43d2a);
+  }
+
+  // cuelga la barra por encima del modelo, midiendo lo que mide de alto
+  function attachHpBar(g, width) {
+    const caja = new THREE.Box3().setFromObject(g);
+    const alto = isFinite(caja.max.y) ? caja.max.y : 1.2;
+    const barra = makeHpBar(width);
+    barra.position.y = alto + 0.45;
+    g.add(barra);
+    g.userData.hpBar = barra;
+    return g;
+  }
+
   function makeTextSprite(text, color) {
     const cv = document.createElement("canvas");
     cv.width = 128; cv.height = 64;
@@ -1442,17 +1484,26 @@
     const g = builder ? builder(scale) : buildGenericEnemy(scale, e);
     g.userData.fly = !!e.fly;
     g.userData.baseHover = e.fly ? 1.9 * scale : (builder ? 0 : 0.65 * scale);
+    // ancho equivalente al del 2D (e.def.r * 2 px de juego)
+    attachHpBar(g, Math.max(1.4, (e.r || 12) * 2 * SCALE));
     return g;
   }
   function updateEnemyMesh(e, g) {
     // los voladores mantienen su altura de vuelo por encima del relieve
-    g.position.set(toX(e.x), groundY(e.x, e.y) + g.userData.baseHover, toZ(e.y));
+    const suelo = groundY(e.x, e.y);
+    g.position.set(toX(e.x), suelo + g.userData.baseHover, toZ(e.y));
     if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
     const t = performance.now() * 0.001;
+    // el balanceo se suma al suelo: antes lo sustituia y los bichos que se
+    // mecen ignoraban el relieve, hundiendose en las dunas
     if (g.userData.fly) {
-      g.position.y = g.userData.baseHover + Math.sin(t * 4 + e.x) * 0.15;
+      g.position.y = suelo + g.userData.baseHover + Math.sin(t * 4 + e.x) * 0.15;
     } else if (g.userData.bob) {
-      g.position.y = g.userData.baseHover + Math.sin(t * 6 + e.x) * g.userData.bob;
+      g.position.y = suelo + g.userData.baseHover + Math.sin(t * 6 + e.x) * g.userData.bob;
+    }
+    if (g.userData.hpBar) {
+      const max = (e.def && e.def.hp) || e.maxHp || e.hp || 1;
+      updateHpBar(g.userData.hpBar, e.hp / max);
     }
     if (g.userData.wingFlap) {
       const flap = Math.sin(t * 8 + e.x) * 0.4;
@@ -1637,7 +1688,8 @@
     const isHero = u.kindU === "hero";
     if (isHero) {
       const builder = HERO_BUILDERS[u.type];
-      if (builder) return builder(1.15);
+      // el heroe la lleva mas ancha, como en 2D (24 px frente a 18)
+      if (builder) return attachHpBar(builder(1.15), 24 * SCALE);
     }
     const g = new THREE.Group();
     const color = 0x6f7a8f;
@@ -1650,11 +1702,12 @@
     head.position.y = h + 0.2;
     head.castShadow = true; addOutline(head, 0x1a1a1a, 1.1);
     g.add(head);
-    return g;
+    return attachHpBar(g, 18 * SCALE);
   }
   function updateUnitMesh(u, g) {
     g.position.set(toX(u.x), groundY(u.x, u.y), toZ(u.y));
     g.visible = !u.dead;
+    if (g.userData.hpBar) updateHpBar(g.userData.hpBar, u.hp / (u.maxHp || u.hp || 1));
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
   }
 
