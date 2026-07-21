@@ -16,7 +16,8 @@
   const fromWorld = (wx, wz) => ({ x: wx / SCALE + TA.W / 2, y: wz / SCALE + TA.H / 2 });
 
   let renderer, scene, camera, sun, raycaster, groundPlane;
-  let terrainMesh = null, pathGroup = null, sceneryGroup = null, spotGroup = null, currentPaths = [];
+  let terrainMesh = null, pathGroup = null, sceneryGroup = null, spotGroup = null;
+  let markerGroup = null, currentPaths = [];
   const pools = { towers: new Map(), enemies: new Map(), units: new Map(), projectiles: new Map(), effects: new Map() };
 
   // ---------- utilidades de material/geometría "cartoon" ----------
@@ -269,6 +270,7 @@
     if (pathGroup) { scene.remove(pathGroup); }
     if (sceneryGroup) { scene.remove(sceneryGroup); }
     if (spotGroup) { scene.remove(spotGroup); }
+    if (markerGroup) { scene.remove(markerGroup); }
     if (rangeGroup) { scene.remove(rangeGroup); rangeGroup = null; rangeKey = ""; }
     if (rallyGroup) { scene.remove(rallyGroup); rallyGroup = null; rallyKey = ""; }
     currentPaths = paths;
@@ -321,6 +323,9 @@
 
     spotGroup = buildSpotMarkers(spots);
     scene.add(spotGroup);
+
+    markerGroup = buildPathMarkers(paths);
+    scene.add(markerGroup);
   };
 
   // ---------- huecos de construcción ----------
@@ -424,7 +429,7 @@
   // los has mandado; el juego 2D lo dibujaba y el paso a 3D se lo dejó.
   let rallyGroup = null, rallyKey = "";
 
-  function makeRallyFlag() {
+  function makeRallyFlag(color) {
     const g = new THREE.Group();
     // mas grande que los 22 px del 2D: visto desde la camara cenital y en
     // perspectiva, un mastil fino de esa altura casi no se distingue
@@ -437,9 +442,73 @@
     const forma = new THREE.Shape();
     forma.moveTo(0, 0); forma.lineTo(2.3, -0.7); forma.lineTo(0, -1.4); forma.lineTo(0, 0);
     const tela = new THREE.Mesh(new THREE.ShapeGeometry(forma),
-      toonMat(0xd43d2a, { side: THREE.DoubleSide }));
+      toonMat(color || 0xd43d2a, { side: THREE.DoubleSide }));
     tela.position.set(0.08, 3.5, 0);
     g.add(tela);
+    return g;
+  }
+
+  // ---------- marcas de entrada y salida del camino ----------
+  // Flecha roja por donde entran los enemigos y banderin azul en lo que
+  // defiendes. Sin esto, en un nivel nuevo no sabes de donde vienen ni que
+  // proteges. El juego 2D las dibujaba y el paso a 3D se las dejo.
+  function makeEntryArrow() {
+    const forma = new THREE.Shape();
+    forma.moveTo(1.5, 0);            // punta
+    forma.lineTo(0.2, 0.95);
+    forma.lineTo(0.2, 0.38);
+    forma.lineTo(-1.5, 0.38);
+    forma.lineTo(-1.5, -0.38);
+    forma.lineTo(0.2, -0.38);
+    forma.lineTo(0.2, -0.95);
+    forma.lineTo(1.5, 0);
+    const geo = new THREE.ShapeGeometry(forma);
+    geo.rotateX(-Math.PI / 2);       // tumbada en el suelo
+    const m = new THREE.Mesh(geo, toonMat(0xd43d2a, { side: THREE.DoubleSide }));
+    return m;
+  }
+
+  // Los caminos empiezan y acaban fuera del mapa (los enemigos entran y salen
+  // por los lados), asi que las marcas no pueden ir en at(6) ni al final: se
+  // quedarian flotando fuera del terreno. Se busca el primer punto que si cae
+  // dentro, con margen.
+  function primerPuntoDentro(path, desdeElFinal) {
+    const M = 26;
+    const paso = 4;
+    for (let i = 0; i <= path.total; i += paso) {
+      const s = desdeElFinal ? path.total - i : i;
+      const p = path.at(s);
+      if (p.x > M && p.x < TA.W - M && p.y > M && p.y < TA.H - M) return { p, s };
+    }
+    return { p: path.at(desdeElFinal ? path.total - 8 : 6), s: desdeElFinal ? path.total - 8 : 6 };
+  }
+
+  // en los niveles con bifurcacion todos los caminos comparten el tramo
+  // inicial, asi que se agrupan las marcas que caen casi en el mismo sitio
+  function buildPathMarkers(paths) {
+    const g = new THREE.Group();
+    const vistosIni = [], vistosFin = [];
+    for (const path of paths) {
+      if (path.total < 20) continue;
+
+      const ini = primerPuntoDentro(path, false);
+      const a = ini.p, b = path.at(Math.min(path.total, ini.s + 10));
+      if (!vistosIni.some((q) => Math.hypot(q.x - a.x, q.y - a.y) < 10)) {
+        vistosIni.push(a);
+        const flecha = makeEntryArrow();
+        flecha.position.set(toX(a.x), groundY(a.x, a.y) + 0.16, toZ(a.y));
+        flecha.rotation.y = Math.atan2(-(b.y - a.y), b.x - a.x);  // apunta hacia dentro
+        g.add(flecha);
+      }
+
+      const fin = primerPuntoDentro(path, true).p;
+      if (!vistosFin.some((q) => Math.hypot(q.x - fin.x, q.y - fin.y) < 10)) {
+        vistosFin.push(fin);
+        const bandera = makeRallyFlag(0x3f68b0);   // azul, como en 2D
+        bandera.position.set(toX(fin.x), groundY(fin.x, fin.y), toZ(fin.y));
+        g.add(bandera);
+      }
+    }
     return g;
   }
 
