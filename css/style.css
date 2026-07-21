@@ -171,6 +171,18 @@ body {
 }
 #cv { display: block; background: #79bd4f; }
 
+/* Viñeta: oscurece un poco los bordes para dar profundidad, como hacía el
+   render 2D. Se hace con CSS y no dentro de la escena 3D porque así no cuesta
+   nada de dibujado. No debe capturar los toques: van al lienzo de debajo. */
+#cv-holder::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    rgba(0, 0, 0, 0) 45%,
+    rgba(20, 15, 8, 0.28) 100%);
+}
+
 #wave-call {
   position: absolute; top: calc(48px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   display: none; text-align: center; font-size: 15px; padding: 8px 18px;
