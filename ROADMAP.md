@@ -79,9 +79,13 @@ Hecho:
 - Huecos de construcción, círculo de alcance y banderín de reunión, que el port se había dejado.
 - Los huecos se apartan del camino en el motor (`layoutSpots`), no en los datos, así que vale
   también para niveles nuevos. Las torres crecen en altura y poco a lo ancho, para no invadirlo.
+- Barras de vida de enemigos, héroes y soldados.
+- Flecha roja de entrada y banderín azul de salida del camino.
+- Los ocho tipos de efecto del motor: chispazos, humo al morir y clima por región.
 
 Pendiente:
-- Efectos de impacto y explosión (siguen siendo un donut que crece).
+- Puente de madera sobre el río (el 2D lo dibuja; en 3D el camino cruza el agua sin nada).
+- Viñeta en los bordes y reloj de reaparición sobre los héroes muertos. Cosméticos.
 - Tocar una torre alta es impreciso: el toque se resuelve contra un plano a ras de suelo, así que
   hay que apuntar a su base. Probar en móvil antes de decidir si se arregla.
 - Repasar el equilibrio: mover los huecos cambia un poco qué cubre cada torre.
