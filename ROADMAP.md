@@ -97,10 +97,11 @@ cambia de resultado, la peor caída de aguante es del 2,3% y la media es -0,34%.
 torres del camino no ha movido el equilibrio.
 
 Notas de trabajo:
-- Al cambiar cualquier fichero del juego hay que **subir `CACHE` en `sw.js`**. Si no, a quien lo
-  tenga instalado le sigue llegando la versión vieja desde su caché.
-- El navegador se queda con el JavaScript cacheado y no revalida. Para probar cambios, medir con
-  Node o añadir `?v=N` a los `<script>` de `index.html` temporalmente.
+- Al cambiar cualquier fichero del juego hay que subir **dos** números y dejarlos iguales:
+  `CACHE` en `sw.js` y el `?v=` de los `<script>` y el `<link>` de `index.html`. Son dos cachés
+  distintas: la primera es la del juego instalado, la segunda es lo único que obliga al navegador
+  a soltar su copia del JavaScript. Olvidar el `?v=` significa seguir viendo código viejo sin
+  enterarte — costó tres rondas de "esto sigue sin estar arreglado" cuando ya lo estaba.
 
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.
