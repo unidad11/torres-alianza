@@ -83,11 +83,13 @@ Hecho:
 - Flecha roja de entrada y banderín azul de salida del camino.
 - Los ocho tipos de efecto del motor: chispazos, humo al morir y clima por región.
 
+- Puente de madera sobre el río, viñeta de los bordes y reloj de reaparición del héroe caído.
+
 Pendiente:
-- Puente de madera sobre el río (el 2D lo dibuja; en 3D el camino cruza el agua sin nada).
-- Viñeta en los bordes y reloj de reaparición sobre los héroes muertos. Cosméticos.
 - Tocar una torre alta es impreciso: el toque se resuelve contra un plano a ras de suelo, así que
-  hay que apuntar a su base. Probar en móvil antes de decidir si se arregla.
+  hay que apuntar a su base. Es lo único que queda de la lista y necesita probarse con el dedo en
+  el móvil, no con clics simulados.
+- Jugarlo de verdad unos niveles antes de fusionar a `main`.
 
 Equilibrio: comprobado con `node tools/simular-equilibrio.js`, que juega los 15 niveles en seco y
 compara los huecos actuales contra los originales. Con 12 repeticiones por nivel: ningún nivel
