@@ -3,7 +3,7 @@
 // OJO: subir este número cada vez que cambie cualquier fichero de FILES.
 // Si no, a quien tenga el juego instalado le sigue llegando la versión vieja
 // desde su caché, por muchos cambios que se publiquen.
-const CACHE = "torres-alianza-v14";
+const CACHE = "torres-alianza-v15";
 const FILES = [
   ".", "index.html", "manifest.json",
   "css/style.css",

@@ -265,6 +265,56 @@
     return m;
   }
 
+  // ---------- puente de madera sobre el río ----------
+  // El camino cruza el agua por aquí. El 2D lo dibujaba y el paso a 3D se lo
+  // había dejado, así que el camino cruzaba el río sin nada debajo.
+  // Mismas medidas que el 2D: cubre el ancho del río más 8 px por cada lado.
+  function buildBridge(rv) {
+    const g = new THREE.Group();
+    const largo = (rv.w + 16) * SCALE;   // lo que salva, cruzando el río
+    const ancho = rv.bridgeH * SCALE;    // lo ancho que es el paso
+    const MADERA = 0xa06a3c, VIGA = 0x7a4a24, INK = 0x4a3018;
+
+    // tablones sueltos cada 9 px, como las rayas del 2D
+    const paso = 9 * SCALE;
+    const n = Math.max(2, Math.round(largo / paso));
+    for (let i = 0; i < n; i++) {
+      const t = new THREE.Mesh(
+        new THREE.BoxGeometry(paso * 0.82, 0.16, ancho),
+        toonMat(i % 2 ? MADERA : 0x966036)   // veta alterna, para que se lean
+      );
+      t.position.set(-largo / 2 + paso * (i + 0.5), 0.3, 0);
+      t.castShadow = true; t.receiveShadow = true;
+      g.add(t);
+    }
+
+    // dos vigas por debajo, que es lo que lo sostiene sobre el agua
+    for (const lado of [-1, 1]) {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(largo, 0.22, 0.3), toonMat(VIGA));
+      v.position.set(0, 0.13, lado * (ancho / 2 - 0.2));
+      g.add(v);
+    }
+
+    // barandillas: no están en el 2D, pero de perfil el puente se confundía
+    // con el camino si no tiene nada que sobresalga
+    for (const lado of [-1, 1]) {
+      const pasamanos = new THREE.Mesh(new THREE.BoxGeometry(largo, 0.14, 0.14), toonMat(VIGA));
+      pasamanos.position.set(0, 0.95, lado * ancho / 2);
+      pasamanos.castShadow = true;
+      addOutline(pasamanos, INK, 1.04);
+      g.add(pasamanos);
+      for (let i = 0; i <= 3; i++) {
+        const poste = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.7, 0.16), toonMat(VIGA));
+        poste.position.set(-largo / 2 + (largo / 3) * i, 0.6, lado * ancho / 2);
+        poste.castShadow = true;
+        g.add(poste);
+      }
+    }
+
+    g.position.set(toX(rv.x), 0, toZ(rv.bridgeY));
+    return g;
+  }
+
   R3.buildTerrain = function (level, paths, spots) {
     if (terrainMesh) { scene.remove(terrainMesh); }
     if (pathGroup) { scene.remove(pathGroup); }
@@ -315,6 +365,7 @@
       river.rotation.x = -Math.PI / 2;
       river.position.set(toX(rv.x), 0.02, 0);
       pathGroup.add(river);
+      pathGroup.add(buildBridge(rv));
     }
     scene.add(pathGroup);
 
