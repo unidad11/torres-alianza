@@ -1831,21 +1831,96 @@
     }
   }
 
-  // ---------- efectos (partículas simples) ----------
+  // ---------- efectos ----------
+  // El motor emite ocho tipos; antes solo se reconocian cinco y los otros tres
+  // (spark, puff, ambient) caian en el caso por defecto y salian como bolitas
+  // blancas iguales.
+  const AMBIENT_COLOR = { nieve: 0xffffff, arena: 0xd6b478, hoja: 0x5a9632 };
+
   function makeEffectMesh(fx) {
     if (fx.kind === "dmg") return makeTextSprite(String(fx.text), fx.color || "#fff2c8");
     if (fx.kind === "coin") return makeTextSprite("+" + "$", "#ffd94a");
     if (fx.kind === "heal") return makeTextSprite("+", "#7CFC9A");
+
+    if (fx.kind === "spark") {
+      // chispazo del golpe: estrella corta y brillante (dura 0.22 s)
+      const color = fx.color === "#9ad2ff" ? 0x9ad2ff : 0xfff2c8;
+      const g = new THREE.Group();
+      for (let i = 0; i < 4; i++) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 0.09),
+          new THREE.MeshBasicMaterial({ color, transparent: true }));
+        p.rotation.y = (i / 4) * Math.PI * 2 + (fx.seed || 0);
+        p.rotation.z = (i % 2 ? 0.5 : -0.5);
+        g.add(p);
+      }
+      return g;
+    }
+    if (fx.kind === "puff") {
+      // humillo al morir: bolas de polvo que se hinchan y se van
+      const g = new THREE.Group();
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + (fx.seed || 0);
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 5),
+          new THREE.MeshBasicMaterial({ color: 0xd8cdbb, transparent: true }));
+        b.position.set(Math.cos(a) * 0.25, 0, Math.sin(a) * 0.25);
+        g.add(b);
+      }
+      return g;
+    }
+    if (fx.kind === "ambient") {
+      const color = AMBIENT_COLOR[fx.variant] || 0xffffff;
+      // algo mas grandes que en 2D: la perspectiva encoge las que caen al fondo
+      const geo = fx.variant === "hoja" ? new THREE.PlaneGeometry(0.6, 0.36)
+                : fx.variant === "arena" ? new THREE.PlaneGeometry(0.38, 0.22)
+                : new THREE.SphereGeometry(0.2, 5, 4);
+      return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    }
+
     const color = fx.kind === "boom" ? 0xff9d4a : fx.kind === "whirl" ? 0xbfe0ff : 0xffffff;
     const geo = fx.kind === "boom" || fx.kind === "whirl" ? new THREE.TorusGeometry(0.6, 0.15, 6, 12) : new THREE.SphereGeometry(0.25, 6, 6);
     return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }));
   }
+
+  function setOpacity(m, v) {
+    if (m.material) { m.material.opacity = v; return; }
+    m.traverse((o) => { if (o.material) o.material.opacity = v; });
+  }
+
   function updateEffectMesh(fx, m) {
-    const t = fx.age / fx.dur;
-    m.position.set(toX(fx.x), 1.2 + t * 1.2, toZ(fx.y));
-    const s = fx.kind === "boom" || fx.kind === "whirl" ? 1 + t * 2 : 1;
-    m.scale.set(s, s, s);
-    if (m.material) m.material.opacity = Math.max(0, 1 - t);
+    const t = Math.min(1, fx.age / fx.dur);
+
+    if (fx.kind === "ambient") {
+      // El motor lo piensa en 2D: la particula "cae" por la pantalla. Aqui se
+      // convierte en una caida de verdad desde el cielo.
+      // Ojo: estas particulas NO traen x/y, solo x0/y0. Leer fx.x daba NaN y
+      // se creaban objetos fantasma durante toda la partida.
+      const gx = fx.x0 + fx.drift * fx.age * 0.3 + Math.sin(fx.age * 2 + fx.seed) * 10;
+      const gz = ((fx.seed || 0) / 10) * TA.H;   // repartidas por el campo, sin azar nuevo
+      m.position.set(toX(gx), groundY(gx, gz) + 0.4 + (1 - t) * 12, toZ(gz));
+      if (fx.variant === "hoja") { m.rotation.x = -1.2; m.rotation.z = fx.age * 3 + fx.seed; }
+      else m.rotation.x = -Math.PI / 2;
+      setOpacity(m, t > 0.85 ? (1 - t) / 0.15 * 0.8 : 0.8);  // solo se apaga al final
+      return;
+    }
+
+    // los demas salen del suelo, no de una altura fija: con dunas de hasta
+    // 0.9 el efecto se quedaba dentro del terreno
+    const base = groundY(fx.x, fx.y);
+    if (fx.kind === "spark") {
+      m.position.set(toX(fx.x), base + 1.0, toZ(fx.y));
+      const s = 0.7 + t * 1.6;
+      m.scale.set(s, s, s);
+    } else if (fx.kind === "puff") {
+      m.position.set(toX(fx.x), base + 0.5 + t * 0.7, toZ(fx.y));
+      const s = 0.6 + t * 1.4;
+      m.scale.set(s, s, s);
+    } else {
+      m.position.set(toX(fx.x), base + 1.2 + t * 1.2, toZ(fx.y));
+      const s = fx.kind === "boom" || fx.kind === "whirl" ? 1 + t * 2 : 1;
+      m.scale.set(s, s, s);
+    }
+    setOpacity(m, Math.max(0, 1 - t));
   }
 
   // ---------- sincronización genérica de pools ----------
