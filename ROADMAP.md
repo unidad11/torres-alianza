@@ -88,7 +88,11 @@ Pendiente:
 - Viñeta en los bordes y reloj de reaparición sobre los héroes muertos. Cosméticos.
 - Tocar una torre alta es impreciso: el toque se resuelve contra un plano a ras de suelo, así que
   hay que apuntar a su base. Probar en móvil antes de decidir si se arregla.
-- Repasar el equilibrio: mover los huecos cambia un poco qué cubre cada torre.
+
+Equilibrio: comprobado con `node tools/simular-equilibrio.js`, que juega los 15 niveles en seco y
+compara los huecos actuales contra los originales. Con 12 repeticiones por nivel: ningún nivel
+cambia de resultado, la peor caída de aguante es del 2,3% y la media es -0,34%. O sea, apartar las
+torres del camino no ha movido el equilibrio.
 
 Notas de trabajo:
 - Al cambiar cualquier fichero del juego hay que **subir `CACHE` en `sw.js`**. Si no, a quien lo
