@@ -158,10 +158,58 @@
     return true;
   };
 
+  // ---------- encuadre de la cámara ----------
+  // La cámara estaba a una distancia fija, pensada para una pantalla 16:9. El
+  // campo ocupaba el 96% del ancho pero solo el 64% del alto: un tercio de la
+  // pantalla era cielo vacío y todo se veía diminuto. En un móvil, que es más
+  // apaisado, se desperdiciaba aún más.
+  //
+  // Ahora se ajusta sola: se acerca hasta que el campo llena el encuadre, sea
+  // cual sea la pantalla, y se centra en vertical. Se resuelve probando y
+  // midiendo porque con la cámara inclinada la cuenta directa no es trivial.
+  const CAM_DIR = new THREE.Vector3(0, 60, 50).normalize();  // misma inclinación de siempre
+  const LLENADO = 0.96;   // fracción de pantalla que debe ocupar el campo
+
+  // esquinas del campo proyectadas a pantalla (0..1)
+  function encuadreDelCampo() {
+    const v = new THREE.Vector3();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [gx, gy] of [[0, 0], [TA.W, 0], [0, TA.H], [TA.W, TA.H]]) {
+      v.set(toX(gx), 0, toZ(gy)).project(camera);
+      const fx = (v.x + 1) / 2, fy = (1 - v.y) / 2;
+      x0 = Math.min(x0, fx); x1 = Math.max(x1, fx);
+      y0 = Math.min(y0, fy); y1 = Math.max(y1, fy);
+    }
+    return { w: x1 - x0, h: y1 - y0, cy: (y0 + y1) / 2 };
+  }
+
+  function colocarCamara(dist, targetZ) {
+    camera.position.copy(CAM_DIR).multiplyScalar(dist);
+    camera.position.z += targetZ;
+    camera.lookAt(0, 0, targetZ);
+    camera.updateMatrixWorld();
+  }
+
+  function ajustarEncuadre() {
+    let dist = 78, targetZ = -4;
+    // unas pocas pasadas bastan: cada una corrige distancia y centrado
+    for (let i = 0; i < 12; i++) {
+      colocarCamara(dist, targetZ);
+      const e = encuadreDelCampo();
+      const ocupa = Math.max(e.w, e.h);
+      if (ocupa > 0.01) dist *= ocupa / LLENADO;      // acercar o alejar
+      dist = Math.max(24, Math.min(200, dist));
+      targetZ += (e.cy - 0.5) * 40;                    // subir o bajar el centro
+      targetZ = Math.max(-40, Math.min(40, targetZ));
+    }
+    colocarCamara(dist, targetZ);
+  }
+
   R3.resize = function (w, h) {
     renderer.setSize(w, h, false);
     camera.aspect = w / Math.max(h, 1);
     camera.updateProjectionMatrix();
+    ajustarEncuadre();   // el encuadre depende de la forma de la pantalla
   };
 
   // ---------- entrada: pantalla <-> mundo de juego ----------
