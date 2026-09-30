@@ -77,6 +77,16 @@
     return g;
   }
 
+  // igual que attachHpBar pero con la altura dada: un sprite no se puede medir
+  // con Box3 (su geometría es un cuadrado unidad), así que se le pasa a mano
+  function attachHpBarAt(g, width, alto) {
+    const barra = makeHpBar(width);
+    barra.position.y = alto + 0.45;
+    g.add(barra);
+    g.userData.hpBar = barra;
+    return g;
+  }
+
   // ---------- reloj de reaparición del héroe muerto ----------
   // Mancha en el suelo con la cuenta atrás encima, como en el 2D. Sin esto no
   // se sabe si un héroe ha caído ni cuánto falta para que vuelva.
@@ -313,8 +323,13 @@
   };
   let ambient = null; // se guarda en init para poder ajustarla por región
 
+  // Bosque al crepúsculo (dirección de arte v2): niebla verde-azulada, luz de
+  // farol dorada y sombras que tiran a violeta. Solo con el arte nuevo activo.
+  const LOOK_ARTE_BOSQUE = { sky: 0x3b566e, near: 90, far: 200, sun: 0xffd39a, sunI: 0.95, amb: 0xa89ad8, ambI: 0.5 };
+
   function applyRegionLook(region) {
-    const L = REGION_LOOK[region] || REGION_LOOK.bosque;
+    let L = REGION_LOOK[region] || REGION_LOOK.bosque;
+    if (TA.arte && TA.arte.enabled && (region || "bosque") === "bosque") L = LOOK_ARTE_BOSQUE;
     scene.background = new THREE.Color(L.sky);
     scene.fog = new THREE.Fog(L.sky, L.near, L.far);
     sun.color.setHex(L.sun); sun.intensity = L.sunI;
@@ -414,6 +429,8 @@
     // la nieve no puede ser casi blanca: con la luz de la escena se saturaba a
     // 255,255,255 y el relieve desaparecia. 0xc4d4e2 con luz 1.10 da 216,233,249
     const REGION_COLOR = { bosque: 0x5a9d42, desierto: 0xd9bc7a, montana: 0xc4d4e2 };
+    // con el arte nuevo el Bosque es más hondo y verde (con la luz violeta se ve esmeralda)
+    if (TA.arte && TA.arte.enabled) REGION_COLOR.bosque = 0x3f8f4a;
     const color = REGION_COLOR[level.region] || REGION_COLOR.bosque;
     // la rejilla del terreno coincide con la del relieve, así que el suelo y
     // las consultas de altura dan exactamente el mismo valor en cada vértice
@@ -1112,8 +1129,29 @@
     canon: buildCanon, hielo: buildHielo, electrica: buildElectrica, apoyo: buildApoyo,
   };
 
+  // torres que ya tienen dibujo propio (fase 0: solo los Arqueros) y cuánto
+  // crecen al subir de nivel. Crecen a lo ancho y a lo alto por igual: estirar un
+  // dibujo lo deforma. El tope de anchura es el del hueco (ver WIDTH_SCALE).
+  const ARTE_TORRE = { arqueros: "arqueros" };
+  const ARTE_TORRE_ESCALA = [1, 1.14, 1.28];
+
   function populateTower(g, tw) {
     disposeChildren(g);
+    const dibujo = ARTE_TORRE[tw.type];
+    if (dibujo && TA.arte && TA.arte.has(dibujo)) {
+      const lvA = Math.max(0, Math.min(2, tw.level || 0));
+      const art = TA.arte.make(dibujo, 2.3);
+      g.userData.orb = null; g.userData.rings = null; g.userData.shards = null;
+      g.userData.banner = null; g.userData.banner2 = null;
+      g.add(art);
+      g.userData.art = art.userData.art;
+      g.userData.builtArt = true;
+      g.userData.builtLevel = lvA;
+      const k = ARTE_TORRE_ESCALA[lvA];
+      g.scale.set(k, k, k);
+      return;
+    }
+    g.userData.art = null; g.userData.builtArt = false;
     g.userData.orb = null; g.userData.rings = null; g.userData.shards = null;
     g.userData.banner = null; g.userData.banner2 = null;
     const lv = Math.max(0, Math.min(2, tw.level || 0));
@@ -1134,10 +1172,13 @@
     // solo el dibujo y la torre no cuadraba con su propia plataforma)
     // apoyada en el suelo: el hueco está aplanado, así que no se inclina
     g.position.set(toX(tw.x), groundY(tw.x, tw.y), toZ(tw.y));
-    if (typeof tw.aimAngle === "number") g.rotation.y = -tw.aimAngle;
     const lv = Math.max(0, Math.min(2, tw.level || 0));
-    if (g.userData.builtLevel !== lv) populateTower(g, tw);
+    const usaArte = !!(ARTE_TORRE[tw.type] && TA.arte && TA.arte.has(ARTE_TORRE[tw.type]));
+    // la torre dibujada no gira para apuntar: es un dibujo que mira a la cámara
+    if (typeof tw.aimAngle === "number" && !usaArte) g.rotation.y = -tw.aimAngle;
+    if (g.userData.builtLevel !== lv || !!g.userData.builtArt !== usaArte) populateTower(g, tw);
     const t = performance.now() * 0.001;
+    if (g.userData.art) TA.arte.pose(g.children[0], { t, phase: tw.x * 0.031, moving: false, flip: false });
     if (g.userData.orb) g.userData.orb.rotation.y += 0.02;
     if (g.userData.rings) for (const r of g.userData.rings) r.rotation.z += 0.01;
     if (g.userData.shards) g.userData.shards.forEach((s, i) => {
@@ -1681,8 +1722,20 @@
     enjambre: buildEnjambre, yeti: buildYeti, coloso: buildColoso,
   };
 
+  // enemigos con dibujo propio (fase 0: solo el Goblin)
+  const ARTE_ENEMIGO = { goblin: "goblin" };
+
   function makeEnemyMesh(e) {
     const scale = Math.max(0.6, (e.r || 12) / 12);
+    const dibujo = ARTE_ENEMIGO[e.type];
+    if (dibujo && TA.arte && TA.arte.has(dibujo)) {
+      const g = TA.arte.make(dibujo, 0.75 * scale);
+      g.scale.set(scale, scale, scale);
+      g.userData.baseHover = 0;
+      g.userData.fly = false;
+      attachHpBarAt(g, Math.max(1.4, (e.r || 12) * 2 * SCALE) / scale, TA.arte.altoDe(dibujo));
+      return g;
+    }
     const builder = ENEMY_BUILDERS[e.type];
     const g = builder ? builder(scale) : buildGenericEnemy(scale, e);
     g.userData.fly = !!e.fly;
@@ -1697,6 +1750,10 @@
     g.position.set(toX(e.x), suelo + g.userData.baseHover, toZ(e.y));
     if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
     const t = performance.now() * 0.001;
+    if (g.userData.art) {
+      // dibujo: mira hacia donde camina, bota al andar y se queda quieto al luchar
+      TA.arte.pose(g, { t, phase: e.x * 0.05 + (e.y || 0) * 0.03, moving: !e.blocker, flip: !!e.flip });
+    }
     // el balanceo se suma al suelo: antes lo sustituia y los bichos que se
     // mecen ignoraban el relieve, hundiendose en las dunas
     if (g.userData.fly) {
@@ -1886,9 +1943,20 @@
     zahra: buildZahra, bjorn: buildBjorn, frida: buildFrida,
   };
 
+  // héroes con dibujo propio (fase 0: solo Roldán)
+  const ARTE_HEROE = { roldan: "roldan" };
+
   // ---------- unidades: soldados y héroes ----------
   function makeUnitMesh(u) {
     const isHero = u.kindU === "hero";
+    if (isHero && ARTE_HEROE[u.type] && TA.arte && TA.arte.has(ARTE_HEROE[u.type])) {
+      const g = TA.arte.make(ARTE_HEROE[u.type], 1.0);
+      attachHpBarAt(g, 24 * SCALE, TA.arte.altoDe(ARTE_HEROE[u.type]));
+      const marca = makeRespawnMark();
+      g.add(marca);
+      g.userData.respawn = marca;
+      return g;
+    }
     if (isHero) {
       const builder = HERO_BUILDERS[u.type];
       // el heroe la lleva mas ancha, como en 2D (24 px frente a 18)
@@ -1926,6 +1994,17 @@
     }
     if (!u.dead && g.userData.hpBar) updateHpBar(g.userData.hpBar, u.hp / (u.maxHp || u.hp || 1));
     if (g.userData.orb) g.userData.orb.rotation.y += 0.03;
+    if (g.userData.art && !u.dead) {
+      // mira hacia donde se mueve, o hacia el enemigo con el que lucha
+      const ud = g.userData;
+      const dx = ud.lastX === undefined ? 0 : u.x - ud.lastX;
+      ud.lastX = u.x;
+      if (u.engaged && !u.engaged.dead) ud.flip = u.engaged.x < u.x;
+      else if (Math.abs(dx) > 0.05) ud.flip = dx < 0;
+      // "andando" aguanta unos fotogramas tras el último paso: sin esto parpadea
+      if (Math.abs(dx) > 0.02) ud.moveT = 0.2; else if (ud.moveT > 0) ud.moveT -= 0.016;
+      TA.arte.pose(g, { t: performance.now() * 0.001, phase: 1.7, moving: ud.moveT > 0, flip: !!ud.flip });
+    }
   }
 
   // ---------- proyectiles ----------

@@ -113,6 +113,24 @@ Notas de trabajo:
   a soltar su copia del JavaScript. Olvidar el `?v=` significa seguir viendo código viejo sin
   enterarte — costó tres rondas de "esto sigue sin estar arreglado" cuando ya lo estaba.
 
+## 🎨 Dirección de arte — fase 0 (hecha 30/09/2026, rama `migracion-3d`)
+
+Estilo de referencia: Dragon's Lair (línea fina, fondos pintados, luz dramática, personajes esbeltos).
+Las láminas de diseño (paletas, 7 torres, 6 héroes, 15 enemigos, efectos) están en el lienzo de diseño
+"Torres Alianza - Direccion de arte" (claude.ai, privado).
+
+Corte vertical, para ver el look antes de rehacer todo:
+- Los dibujos (SVG en `art/`) se pintan como sprites sobre el terreno 3D (`js/arte.js`): siempre miran
+  a la cámara. Ya tienen dibujo: torre de **Arqueros** (3 niveles, escala 1 / 1.14 / 1.28), **Goblin** y
+  **Roldán**. El resto sigue con los modelos 3D de siempre.
+- Bosque con ambiente de crepúsculo (niebla azul-verdosa, luz dorada, sombras violeta).
+- `?arte=0` al final de la dirección vuelve al aspecto anterior, para comparar.
+- Los sprites no tienen fotogramas de animación: se anima el propio dibujo (bote al andar, respiración,
+  mirar al lado por donde camina).
+- Pendiente de decidir tras jugarlo: si se rehace el resto con este método, si hay animación por
+  fotogramas y los primeros planos dramáticos (jefes y habilidades).
+- Cachés: subidas a 21 (`CACHE` en `sw.js` y `?v=` en `index.html`, iguales).
+
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.
 - Sonidos y música (WebAudio).
