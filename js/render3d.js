@@ -81,7 +81,12 @@
   // con Box3 (su geometría es un cuadrado unidad), así que se le pasa a mano
   function attachHpBarAt(g, width, alto) {
     const barra = makeHpBar(width);
-    barra.position.y = alto + 0.45;
+    // el sprite mide "alto" en vertical de PANTALLA (hacia donde apunta el "arriba"
+    // de la cámara), no en vertical del mundo: con la cámara inclinada una unidad
+    // vertical del mundo solo ocupa ~0,64 de pantalla y la barra caía a media
+    // altura, sobre el pecho. Se coloca en la misma dirección que el sprite.
+    // (por eso los dibujos no se giran: el grupo tiene que mantener su orientación)
+    barra.position.copy(new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion)).multiplyScalar(alto + 0.45);
     g.add(barra);
     g.userData.hpBar = barra;
     return g;
@@ -1748,11 +1753,11 @@
     // los voladores mantienen su altura de vuelo por encima del relieve
     const suelo = groundY(e.x, e.y);
     g.position.set(toX(e.x), suelo + g.userData.baseHover, toZ(e.y));
-    if (e.dx !== undefined) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
+    if (e.dx !== undefined && !g.userData.art) g.rotation.y = Math.atan2(e.dx, e.dy || 0.001) + Math.PI;
     const t = performance.now() * 0.001;
     if (g.userData.art) {
       // dibujo: mira hacia donde camina, bota al andar y se queda quieto al luchar
-      TA.arte.pose(g, { t, phase: e.x * 0.05 + (e.y || 0) * 0.03, moving: !e.blocker, flip: !!e.flip });
+      TA.arte.pose(g, { t, phase: e.animSeed || 0, moving: !e.blocker, flip: !!e.flip });
     }
     // el balanceo se suma al suelo: antes lo sustituia y los bichos que se
     // mecen ignoraban el relieve, hundiendose en las dunas
@@ -2002,8 +2007,12 @@
       if (u.engaged && !u.engaged.dead) ud.flip = u.engaged.x < u.x;
       else if (Math.abs(dx) > 0.05) ud.flip = dx < 0;
       // "andando" aguanta unos fotogramas tras el último paso: sin esto parpadea
-      if (Math.abs(dx) > 0.02) ud.moveT = 0.2; else if (ud.moveT > 0) ud.moveT -= 0.016;
-      TA.arte.pose(g, { t: performance.now() * 0.001, phase: 1.7, moving: ud.moveT > 0, flip: !!ud.flip });
+      // (se cuenta en segundos reales, no en fotogramas: en modo bajo consumo van a 30)
+      const ahora = performance.now() * 0.001;
+      const dtm = ud.lastT === undefined ? 0.016 : Math.min(0.1, ahora - ud.lastT);
+      ud.lastT = ahora;
+      if (Math.abs(dx) > 0.02) ud.moveT = 0.2; else if (ud.moveT > 0) ud.moveT -= dtm;
+      TA.arte.pose(g, { t: ahora, phase: 1.7, moving: ud.moveT > 0, flip: !!ud.flip });
     }
   }
 

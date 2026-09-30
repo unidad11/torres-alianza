@@ -43,6 +43,15 @@
           const tex = new THREE.CanvasTexture(cv);
           tex.anisotropy = 4;
           d.tex = tex;
+          // Un Sprite de esta versión de Three ignora la escala X negativa, así
+          // que para mirar al otro lado se cambia a una textura espejada
+          // (los tres dibujos están centrados, así que el espejo cae en su sitio)
+          const espejo = tex.clone();
+          espejo.wrapS = THREE.RepeatWrapping;
+          espejo.repeat.x = -1;
+          espejo.offset.x = 1;
+          espejo.needsUpdate = true;
+          d.texFlip = espejo;
         } catch (e) { /* sin textura: el juego usa el modelo 3D de siempre */ }
         resolve();
       };
@@ -79,7 +88,7 @@
     const g = new THREE.Group();
     g.add(makeBlob(radioSombra || 1));
     g.add(spr);
-    g.userData.art = { sprite: spr, wu, hu, alto: d.alto };
+    g.userData.art = { sprite: spr, wu, hu, alto: d.alto, tex: d.tex, texFlip: d.texFlip };
     return g;
   };
 
@@ -103,7 +112,9 @@
       sway = Math.sin(t * 1.4 + ph) * 0.012;
     }
     if (o.pulso) { sy *= 1 + o.pulso; sx *= 1 - o.pulso * 0.5; }
-    a.sprite.scale.set(a.wu * sx * (o.flip ? -1 : 1), a.hu * sy, 1);
+    a.sprite.scale.set(a.wu * sx, a.hu * sy, 1);
+    const mapa = o.flip ? a.texFlip : a.tex;
+    if (a.sprite.material.map !== mapa) a.sprite.material.map = mapa;
     a.sprite.material.rotation = sway;
     a.sprite.position.y = lift;
   };

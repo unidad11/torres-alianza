@@ -129,7 +129,7 @@ Corte vertical, para ver el look antes de rehacer todo:
   mirar al lado por donde camina).
 - Pendiente de decidir tras jugarlo: si se rehace el resto con este método, si hay animación por
   fotogramas y los primeros planos dramáticos (jefes y habilidades).
-- Cachés: subidas a 21 (`CACHE` en `sw.js` y `?v=` en `index.html`, iguales).
+- Cachés: subidas a 22 (`CACHE` en `sw.js` y `?v=` en `index.html`, iguales).
 
 ## Fase 4 — Infierno (niveles 16+) y jefe final
 - Demonios, lava, jefe final con fases.

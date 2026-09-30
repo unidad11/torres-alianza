@@ -8,7 +8,7 @@
 //  - el "?v=" de index.html cambia la URL de cada fichero, que es lo único que
 //    obliga al navegador a soltar su copia. Sin él, el navegador sirve el
 //    JavaScript viejo indefinidamente y no ves tus propios cambios.
-const CACHE = "torres-alianza-v21";
+const CACHE = "torres-alianza-v22";
 const FILES = [
   ".", "index.html", "manifest.json",
   "css/style.css",
